@@ -16,8 +16,7 @@ export function CounselorOverview() {
     return daysSince === 0;
   }).length;
 
-  const averageMoodOverall =
-    students.reduce((sum, s) => sum + s.averageMood, 0) / students.length;
+  const studentsWithCheckIns = students.filter((s) => s.checkIns.length > 0);
 
   const studentsNeedingAttention = students.filter(
     (s) => s.alertLevel === 'high' || s.alertLevel === 'medium'
@@ -90,14 +89,17 @@ export function CounselorOverview() {
 
       <Card className="p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3>Average Mood Score</h3>
+          <h3>Students Who Have Checked In</h3>
           <TrendingUp className="w-5 h-5 text-blue-600" />
         </div>
-        <div className="text-4xl font-semibold text-blue-600 mb-3">{averageMoodOverall.toFixed(1)}<span className="text-lg text-gray-400">/10</span></div>
+        <div className="text-4xl font-semibold text-blue-600 mb-3">
+          {studentsWithCheckIns.length}
+          <span className="text-lg text-gray-400"> / {totalStudents}</span>
+        </div>
         <div className="w-full bg-gray-200 rounded-full h-2">
           <div
             className="bg-blue-600 h-2 rounded-full transition-all"
-            style={{ width: `${(averageMoodOverall / 10) * 100}%` }}
+            style={{ width: totalStudents > 0 ? `${(studentsWithCheckIns.length / totalStudents) * 100}%` : '0%' }}
           />
         </div>
       </Card>

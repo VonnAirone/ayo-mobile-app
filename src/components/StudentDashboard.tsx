@@ -1,30 +1,30 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { Home, Calendar, BookOpen, User, LogOut, Heart } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../lib/AuthContext';
 
 type TabType = 'home' | 'checkin' | 'history' | 'resources';
 
-export interface StudentOutletContext {
-  checkIns: CheckIn[];
-  handleCheckInSubmit: (data: CheckInData) => void;
+export interface CheckInAnswer {
+  questionId: string;
+  question: string;
+  answer: string;
 }
 
 export interface CheckIn {
   id: string;
   date: string;
-  mood: number;
-  stress: number;
-  sleep: number;
-  concerns?: string[];
-  notes: string;
+  answers: CheckInAnswer[];
 }
 
 export interface CheckInData {
-  mood: number;
-  stress: number;
-  sleep: number;
-  concerns: string[];
-  notes: string;
+  answers: CheckInAnswer[];
+}
+
+export interface StudentOutletContext {
+  checkIns: CheckIn[];
+  handleCheckInSubmit: (data: CheckInData) => void;
 }
 
 const tabToPath: Record<TabType, string> = {
@@ -42,42 +42,62 @@ function getActiveTab(pathname: string): TabType {
 }
 
 export function StudentDashboard() {
+  const { user, profile, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const activeTab = getActiveTab(location.pathname);
 
-  const [checkIns, setCheckIns] = useState<CheckIn[]>([
-    {
-      id: '1',
-      date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-      mood: 7,
-      stress: 4,
-      sleep: 6,
-      notes: 'Feeling good overall',
-    },
-    {
-      id: '2',
-      date: new Date(Date.now() - 9 * 24 * 60 * 60 * 1000).toISOString(),
-      mood: 5,
-      stress: 7,
-      sleep: 4,
-      notes: 'Midterms are stressful',
-    },
-  ]);
+  const [checkIns, setCheckIns] = useState<CheckIn[]>([]);
 
-  const handleCheckInSubmit = (data: CheckInData) => {
-    const newCheckIn: CheckIn = {
-      id: String(checkIns.length + 1),
-      date: new Date().toISOString(),
-      ...data,
-    };
-    setCheckIns([newCheckIn, ...checkIns]);
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user || profile?.role !== 'student') {
+      navigate('/', { replace: true });
+      return;
+    }
+    loadCheckIns();
+  }, [user, profile, authLoading]);
+
+  async function loadCheckIns() {
+    const { data, error } = await supabase
+      .from('check_ins')
+      .select('id, answers, created_at')
+      .eq('student_id', user!.id)
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Failed to load check-ins:', error.message);
+      return;
+    }
+
+    setCheckIns(
+      (data ?? []).map((row) => ({
+        id: row.id,
+        date: row.created_at,
+        answers: row.answers ?? [],
+      }))
+    );
+  }
+
+  async function handleCheckInSubmit(data: CheckInData) {
+    const { error } = await supabase.from('check_ins').insert({
+      student_id: user!.id,
+      answers: data.answers,
+    });
+
+    if (error) {
+      console.error('Failed to save check-in:', error.message);
+      return;
+    }
+
+    await loadCheckIns();
     navigate('/student/home');
-  };
+  }
 
-  const handleLogout = () => {
-    navigate('/');
-  };
+  async function handleLogout() {
+    await signOut();
+    navigate('/', { replace: true });
+  }
 
   const navItems = [
     { id: 'home' as TabType, label: 'Home', icon: Home },
@@ -90,6 +110,8 @@ export function StudentDashboard() {
     checkIns,
     handleCheckInSubmit,
   };
+
+  if (authLoading) return null;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -116,7 +138,12 @@ export function StudentDashboard() {
             <div className="w-9 h-9 bg-blue-600 rounded-full flex items-center justify-center">
               <Heart className="w-5 h-5 text-white" fill="currentColor" />
             </div>
-            <span className="text-xl font-semibold text-gray-900">Ayo</span>
+            <div>
+              <span className="text-xl font-semibold text-gray-900">Ayo</span>
+              {profile?.name && (
+                <p className="text-xs text-gray-500 truncate">{profile.name}</p>
+              )}
+            </div>
           </div>
 
           <nav className="flex-1 px-4 py-6 space-y-1">

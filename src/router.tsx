@@ -1,5 +1,5 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
-import { RoleSelection } from './components/RoleSelection';
+import { AuthPage } from './components/AuthPage';
 import { StudentDashboard } from './components/StudentDashboard';
 import { StudentHome } from './components/StudentHome';
 import { CheckInQuestionnaire } from './components/CheckInQuestionnaire';
@@ -12,7 +12,7 @@ import { StudentList } from './components/StudentList';
 export const router = createBrowserRouter([
   {
     path: '/',
-    element: <RoleSelection />,
+    element: <AuthPage />,
   },
   {
     path: '/student',

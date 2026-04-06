@@ -5,12 +5,12 @@ import { Card } from './ui/card';
 import { Badge } from './ui/badge';
 import { Input } from './ui/input';
 import { StudentDetailView } from './StudentDetailView';
-import type { CounselorOutletContext } from './CounselorDashboard';
+import type { CounselorOutletContext, CounselorStudent } from './CounselorDashboard';
 
 export function StudentList() {
   const { students } = useOutletContext<CounselorOutletContext>();
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<CounselorStudent | null>(null);
 
   const filteredStudents = students.filter((student) =>
     student.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -65,9 +65,9 @@ export function StudentList() {
                   )}
                 </div>
                 <div className="text-xs text-gray-500 flex items-center space-x-2">
-                  <span>Mood: {student.averageMood.toFixed(1)}/10</span>
+                  <span>{student.checkIns.length} check-in{student.checkIns.length !== 1 ? 's' : ''}</span>
                   <span>•</span>
-                  <span>{formatDate(student.lastCheckIn)}</span>
+                  <span>{student.lastCheckIn ? formatDate(student.lastCheckIn) : 'No check-ins'}</span>
                 </div>
               </div>
               <ChevronRight className="w-4 h-4 text-gray-400 flex-shrink-0" />

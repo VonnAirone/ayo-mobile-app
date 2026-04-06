@@ -1,22 +1,26 @@
+import { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { LayoutDashboard, Users, LogOut, Heart } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../lib/AuthContext';
 
 type TabType = 'overview' | 'students';
+
+export interface CheckInAnswer {
+  questionId: string;
+  question: string;
+  answer: string;
+}
 
 export interface CounselorStudent {
   id: string;
   name: string;
   lastCheckIn: string;
-  averageMood: number;
   alertLevel: 'none' | 'medium' | 'high';
   recentConcerns: string[];
   checkIns: {
     date: string;
-    mood: number;
-    stress: number;
-    sleep: number;
-    concerns: string[];
-    notes: string;
+    answers: CheckInAnswer[];
   }[];
 }
 
@@ -34,123 +38,95 @@ function getActiveTab(pathname: string): TabType {
   return 'overview';
 }
 
-const students: CounselorStudent[] = [
-  {
-    id: '1',
-    name: 'Sarah Johnson',
-    lastCheckIn: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-    averageMood: 6.8,
-    alertLevel: 'none',
-    recentConcerns: ['Academic pressure'],
-    checkIns: [
-      {
-        date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-        mood: 7,
-        stress: 5,
-        sleep: 7,
-        concerns: ['Academic pressure'],
-        notes: 'Finals coming up but managing well',
-      },
-      {
-        date: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-        mood: 6,
-        stress: 6,
-        sleep: 6,
-        concerns: ['Academic pressure', 'Future/career anxiety'],
-        notes: 'Thinking about college applications',
-      },
-    ],
-  },
-  {
-    id: '2',
-    name: 'Michael Chen',
-    lastCheckIn: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-    averageMood: 3.5,
-    alertLevel: 'high',
-    recentConcerns: ['Loneliness', 'Social relationships'],
-    checkIns: [
-      {
-        date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
-        mood: 3,
-        stress: 8,
-        sleep: 4,
-        concerns: ['Loneliness', 'Social relationships'],
-        notes: 'Finding it hard to connect with others',
-      },
-      {
-        date: new Date(Date.now() - 4 * 24 * 60 * 60 * 1000).toISOString(),
-        mood: 4,
-        stress: 7,
-        sleep: 5,
-        concerns: ['Social relationships'],
-        notes: 'Feeling isolated',
-      },
-    ],
-  },
-  {
-    id: '3',
-    name: 'Emily Rodriguez',
-    lastCheckIn: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-    averageMood: 5.2,
-    alertLevel: 'medium',
-    recentConcerns: ['Family issues', 'Financial stress'],
-    checkIns: [
-      {
-        date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-        mood: 5,
-        stress: 7,
-        sleep: 5,
-        concerns: ['Family issues', 'Financial stress'],
-        notes: 'Things are tough at home',
-      },
-    ],
-  },
-  {
-    id: '4',
-    name: 'David Kim',
-    lastCheckIn: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-    averageMood: 8.2,
-    alertLevel: 'none',
-    recentConcerns: [],
-    checkIns: [
-      {
-        date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-        mood: 8,
-        stress: 3,
-        sleep: 8,
-        concerns: [],
-        notes: 'Doing great!',
-      },
-    ],
-  },
-  {
-    id: '5',
-    name: 'Jessica Brown',
-    lastCheckIn: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-    averageMood: 6.0,
-    alertLevel: 'medium',
-    recentConcerns: ['Academic pressure'],
-    checkIns: [
-      {
-        date: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
-        mood: 6,
-        stress: 6,
-        sleep: 6,
-        concerns: ['Academic pressure'],
-        notes: '',
-      },
-    ],
-  },
-];
+function deriveAlertLevel(
+  latestAnswers: CheckInAnswer[],
+  daysSince: number
+): CounselorStudent['alertLevel'] {
+  if (daysSince > 7) return 'high';
+
+  const mood = latestAnswers.find((a) => a.questionId === 'mood')?.answer ?? '';
+  const confidence = latestAnswers.find((a) => a.questionId === 'confidence')?.answer ?? '';
+
+  if (mood.includes('Really struggling') || confidence.includes('overwhelmed')) return 'high';
+  if (mood.includes('Low') || confidence.includes('Struggling')) return 'medium';
+  if (daysSince > 3) return 'medium';
+  return 'none';
+}
 
 export function CounselorDashboard() {
+  const { user, profile, loading: authLoading, signOut } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const activeTab = getActiveTab(location.pathname);
 
-  const handleLogout = () => {
-    navigate('/');
-  };
+  const [students, setStudents] = useState<CounselorStudent[]>([]);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user || profile?.role !== 'counselor') {
+      navigate('/', { replace: true });
+      return;
+    }
+    loadStudents();
+  }, [user, profile, authLoading]);
+
+  async function loadStudents() {
+    // Fetch all student profiles with their check-ins
+    const { data, error } = await supabase
+      .from('profiles')
+      .select(`
+        id,
+        name,
+        check_ins (
+          id,
+          answers,
+          created_at
+        )
+      `)
+      .eq('role', 'student')
+      .order('created_at', { referencedTable: 'check_ins', ascending: false });
+
+    if (error) {
+      console.error('Failed to load students:', error.message);
+      return;
+    }
+
+    const mapped: CounselorStudent[] = (data ?? []).map((student) => {
+      const checkIns = (student.check_ins ?? []).map((c: {
+        answers: CheckInAnswer[]; created_at: string;
+      }) => ({
+        date: c.created_at,
+        answers: c.answers ?? [],
+      }));
+
+      const lastCheckIn = checkIns[0]?.date ?? '';
+      const daysSince = lastCheckIn
+        ? Math.floor((Date.now() - new Date(lastCheckIn).getTime()) / (1000 * 60 * 60 * 24))
+        : 999;
+
+      const latestAnswers = checkIns[0]?.answers ?? [];
+      const stressAnswer = latestAnswers.find((a) => a.questionId === 'stress')?.answer ?? '';
+      const recentConcerns = stressAnswer
+        ? stressAnswer.split(', ').filter((s) => s !== 'Nothing right now')
+        : [];
+
+      return {
+        id: student.id,
+        name: student.name,
+        lastCheckIn,
+        alertLevel: deriveAlertLevel(latestAnswers, daysSince),
+        recentConcerns,
+        checkIns,
+      };
+    });
+
+    setStudents(mapped);
+  }
+
+  async function handleLogout() {
+    await signOut();
+    navigate('/', { replace: true });
+  }
 
   const navItems = [
     { id: 'overview' as TabType, label: 'Overview', icon: LayoutDashboard },
@@ -158,6 +134,8 @@ export function CounselorDashboard() {
   ];
 
   const outletContext: CounselorOutletContext = { students };
+
+  if (authLoading) return null;
 
   return (
     <div className="min-h-screen bg-gray-50">

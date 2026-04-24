@@ -114,17 +114,20 @@ export function StudentDashboard() {
   if (authLoading) return null;
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-stone-50">
       {/* Mobile header */}
-      <header className="lg:hidden bg-blue-600 text-white p-4 sticky top-0 z-10 shadow-md">
+      <header className="lg:hidden bg-white border-b border-stone-100 px-4 py-3.5 sticky top-0 z-10">
         <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Heart className="w-6 h-6" fill="currentColor" />
-            <h1 className="text-xl font-semibold">Ayo</h1>
+          <div className="flex items-center space-x-2.5">
+            <div className="w-8 h-8 bg-teal-500 rounded-full flex items-center justify-center">
+              <Heart className="w-4 h-4 text-white" fill="currentColor" />
+            </div>
+            <h1 className="text-lg font-semibold text-slate-800 tracking-tight">Ayo</h1>
           </div>
           <button
             onClick={handleLogout}
-            className="p-2 hover:bg-blue-700 rounded-full transition-colors"
+            className="p-2 hover:bg-stone-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
+            aria-label="Log out"
           >
             <LogOut className="w-5 h-5" />
           </button>
@@ -133,42 +136,42 @@ export function StudentDashboard() {
 
       <div className="flex">
         {/* Desktop sidebar */}
-        <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-white border-r border-gray-200 shadow-sm">
-          <div className="flex items-center space-x-3 px-6 py-5 border-b border-gray-100">
-            <div className="w-9 h-9 bg-blue-600 rounded-full flex items-center justify-center">
+        <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-white border-r border-stone-100">
+          <div className="flex items-center space-x-3 px-6 py-6 border-b border-stone-100">
+            <div className="w-9 h-9 bg-teal-500 rounded-full flex items-center justify-center shadow-sm">
               <Heart className="w-5 h-5 text-white" fill="currentColor" />
             </div>
             <div>
-              <span className="text-xl font-semibold text-gray-900">Ayo</span>
+              <span className="text-lg font-semibold text-slate-800 tracking-tight">Ayo</span>
               {profile?.name && (
-                <p className="text-xs text-gray-500 truncate">{profile.name}</p>
+                <p className="text-xs text-slate-400 truncate leading-tight">{profile.name}</p>
               )}
             </div>
           </div>
 
-          <nav className="flex-1 px-4 py-6 space-y-1">
+          <nav className="flex-1 px-3 py-5 space-y-0.5">
             {navItems.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
                 onClick={() => navigate(tabToPath[id])}
-                className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+                className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
                   activeTab === id
-                    ? 'bg-blue-50 text-blue-600'
-                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
+                    ? 'bg-teal-50 text-teal-700'
+                    : 'text-slate-500 hover:bg-stone-50 hover:text-slate-700'
                 }`}
               >
-                <Icon className="w-5 h-5 flex-shrink-0" />
+                <Icon className={`w-4.5 h-4.5 flex-shrink-0 ${activeTab === id ? 'text-teal-600' : ''}`} />
                 <span>{label}</span>
               </button>
             ))}
           </nav>
 
-          <div className="px-4 py-5 border-t border-gray-100">
+          <div className="px-3 py-5 border-t border-stone-100">
             <button
               onClick={handleLogout}
-              className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-100 hover:text-gray-900 transition-colors"
+              className="w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:bg-stone-50 hover:text-slate-600 transition-all duration-150"
             >
-              <LogOut className="w-5 h-5 flex-shrink-0" />
+              <LogOut className="w-4.5 h-4.5 flex-shrink-0" />
               <span>Log Out</span>
             </button>
           </div>
@@ -181,18 +184,21 @@ export function StudentDashboard() {
       </div>
 
       {/* Mobile bottom nav */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-10">
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-stone-100 z-10">
         <div className="flex justify-around">
           {navItems.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => navigate(tabToPath[id])}
               className={`flex-1 flex flex-col items-center py-3 transition-colors ${
-                activeTab === id ? 'text-blue-600' : 'text-gray-500'
+                activeTab === id ? 'text-teal-600' : 'text-slate-400'
               }`}
             >
-              <Icon className="w-6 h-6" />
-              <span className="text-xs mt-1">{label}</span>
+              <Icon className="w-5 h-5" />
+              <span className="text-xs mt-1 font-medium">{label}</span>
+              {activeTab === id && (
+                <span className="absolute top-0 w-6 h-0.5 bg-teal-500 rounded-full -mt-px" />
+              )}
             </button>
           ))}
         </div>

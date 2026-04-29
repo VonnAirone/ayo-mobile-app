@@ -115,24 +115,26 @@ export function StudentDashboard() {
 
   return (
     <div className="min-h-screen bg-stone-50">
-      {/* Mobile header */}
-      <header className="lg:hidden bg-white border-b border-stone-100 px-4 py-3.5 sticky top-0 z-10">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 bg-teal-500 rounded-full flex items-center justify-center">
-              <Heart className="w-4 h-4 text-white" fill="currentColor" />
+      {/* Mobile header — hidden on questionnaire so Yes/No buttons fit without scrolling */}
+      {activeTab !== 'checkin' && (
+        <header className="lg:hidden bg-white border-b border-stone-100 px-4 py-3.5 sticky top-0 z-10">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2.5">
+              <div className="w-8 h-8 bg-teal-500 rounded-full flex items-center justify-center">
+                <Heart className="w-4 h-4 text-white" fill="currentColor" />
+              </div>
+              <h1 className="text-lg font-semibold text-slate-800 tracking-tight">Ayo</h1>
             </div>
-            <h1 className="text-lg font-semibold text-slate-800 tracking-tight">Ayo</h1>
+            <button
+              onClick={handleLogout}
+              className="p-2 hover:bg-stone-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
+              aria-label="Log out"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
           </div>
-          <button
-            onClick={handleLogout}
-            className="p-2 hover:bg-stone-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
-            aria-label="Log out"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
-        </div>
-      </header>
+        </header>
+      )}
 
       <div className="flex">
         {/* Desktop sidebar */}
@@ -178,31 +180,33 @@ export function StudentDashboard() {
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 lg:ml-64 pb-20 lg:pb-0 min-h-screen">
+        <main className={`flex-1 lg:ml-64 min-h-screen ${activeTab !== 'checkin' ? 'pb-20 lg:pb-0' : ''}`}>
           <Outlet context={outletContext} />
         </main>
       </div>
 
-      {/* Mobile bottom nav */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-stone-100 z-10">
-        <div className="flex justify-around">
-          {navItems.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => navigate(tabToPath[id])}
-              className={`flex-1 flex flex-col items-center py-3 transition-colors ${
-                activeTab === id ? 'text-teal-600' : 'text-slate-400'
-              }`}
-            >
-              <Icon className="w-5 h-5" />
-              <span className="text-xs mt-1 font-medium">{label}</span>
-              {activeTab === id && (
-                <span className="absolute top-0 w-6 h-0.5 bg-teal-500 rounded-full -mt-px" />
-              )}
-            </button>
-          ))}
-        </div>
-      </nav>
+      {/* Mobile bottom nav — hidden on questionnaire to free space for Yes/No buttons */}
+      {activeTab !== 'checkin' && (
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-stone-100 z-10">
+          <div className="flex justify-around">
+            {navItems.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => navigate(tabToPath[id])}
+                className={`flex-1 flex flex-col items-center py-3 transition-colors ${
+                  activeTab === id ? 'text-teal-600' : 'text-slate-400'
+                }`}
+              >
+                <Icon className="w-5 h-5" />
+                <span className="text-xs mt-1 font-medium">{label}</span>
+                {activeTab === id && (
+                  <span className="absolute top-0 w-6 h-0.5 bg-teal-500 rounded-full -mt-px" />
+                )}
+              </button>
+            ))}
+          </div>
+        </nav>
+      )}
     </div>
   );
 }

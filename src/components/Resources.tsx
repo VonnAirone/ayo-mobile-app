@@ -1,138 +1,173 @@
-import { useEffect, useState } from 'react';
-import { Phone, MessageCircle, BookOpen, Heart, ExternalLink } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
+import { Phone, MessageCircle, BookOpen, Heart, ExternalLink, ShieldCheck } from 'lucide-react';
 import { Card } from './ui/card';
-import { Button } from './ui/button';
-import { supabase } from '../lib/supabase';
 
-interface Resource {
+interface SupportResource {
+  id: string;
+  icon: React.ReactNode;
+  iconBg: string;
+  title: string;
+  description: string;
+  actionLabel: string;
+  url: string;
+}
+
+interface Article {
   id: string;
   title: string;
   description: string;
-  category: 'support' | 'article';
-  action_label: string | null;
-  url: string | null;
-  icon_name: string | null;
-  color_class: string | null;
-  sort_order: number;
+  url: string;
 }
 
-const iconMap: Record<string, LucideIcon> = {
-  Phone,
-  MessageCircle,
-  Heart,
-  BookOpen,
-};
+const SUPPORT_RESOURCES: SupportResource[] = [
+  {
+    id: 'hopeline',
+    icon: <Phone className="w-5 h-5" />,
+    iconBg: 'bg-teal-50 text-teal-600',
+    title: 'Hopeline Philippines',
+    description: 'Free 24/7 crisis hotline for emotional support and suicide prevention.',
+    actionLabel: 'Call 02-8804-4673',
+    url: 'tel:028804673',
+  },
+  {
+    id: 'ncmh',
+    icon: <ShieldCheck className="w-5 h-5" />,
+    iconBg: 'bg-rose-50 text-rose-500',
+    title: 'NCMH Crisis Hotline',
+    description: 'National Center for Mental Health — crisis line available any time of day.',
+    actionLabel: 'Call 1553',
+    url: 'tel:1553',
+  },
+  {
+    id: 'intouch',
+    icon: <MessageCircle className="w-5 h-5" />,
+    iconBg: 'bg-amber-50 text-amber-600',
+    title: 'In Touch Community Services',
+    description: 'Counseling and crisis intervention by trained professionals.',
+    actionLabel: 'Call 02-8893-7603',
+    url: 'tel:028893603',
+  },
+  {
+    id: 'who',
+    icon: <Heart className="w-5 h-5" />,
+    iconBg: 'bg-purple-50 text-purple-500',
+    title: 'WHO Mental Health Support',
+    description: 'Global mental health resources, guides, and self-help tools.',
+    actionLabel: 'Visit Website',
+    url: 'https://www.who.int/health-topics/mental-health',
+  },
+];
+
+const ARTICLES: Article[] = [
+  {
+    id: 'anxiety',
+    title: 'Understanding Anxiety',
+    description: 'Learn the signs of anxiety and practical ways to manage it day-to-day.',
+    url: 'https://www.nimh.nih.gov/health/topics/anxiety-disorders',
+  },
+  {
+    id: 'resilience',
+    title: 'Building Resilience',
+    description: 'Evidence-based strategies to bounce back from stress and adversity.',
+    url: 'https://www.apa.org/topics/resilience',
+  },
+  {
+    id: 'sleep',
+    title: 'Sleep & Mental Health',
+    description: 'How sleep quality directly affects mood, focus, and emotional regulation.',
+    url: 'https://www.sleepfoundation.org/mental-health',
+  },
+  {
+    id: 'mindfulness',
+    title: 'Mindfulness for Students',
+    description: 'Simple breathing and mindfulness exercises you can do between classes.',
+    url: 'https://www.headspace.com/mindfulness',
+  },
+];
 
 export function Resources() {
-  const [resources, setResources] = useState<Resource[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function load() {
-      const { data, error } = await supabase
-        .from('resources')
-        .select('*')
-        .order('sort_order');
-
-      if (error) {
-        console.error('Failed to load resources:', error.message);
-      } else {
-        setResources(data ?? []);
-      }
-      setLoading(false);
-    }
-    load();
-  }, []);
-
-  const supportResources = resources.filter((r) => r.category === 'support');
-  const articles = resources.filter((r) => r.category === 'article');
-
   return (
-    <div className="p-6 lg:p-8 max-w-4xl space-y-6">
+    <div className="p-6 lg:p-8 max-w-3xl space-y-7">
       <div className="pt-2">
-        <h2 className="text-2xl mb-1">Resources</h2>
-        <p className="text-gray-600">Support and information for your well-being</p>
+        <h2 className="text-2xl font-semibold text-slate-800">Resources</h2>
+        <p className="text-slate-400 text-sm mt-0.5">Support and information for your well-being</p>
       </div>
 
-      {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {[...Array(4)].map((_, i) => (
-            <Card key={i} className="p-4 animate-pulse">
-              <div className="flex items-start space-x-3">
-                <div className="w-10 h-10 rounded-full bg-gray-200 flex-shrink-0" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-4 bg-gray-200 rounded w-1/2" />
-                  <div className="h-3 bg-gray-200 rounded w-3/4" />
-                  <div className="h-8 bg-gray-200 rounded w-1/3 mt-2" />
+      {/* Crisis & support lines */}
+      <section>
+        <h3 className="text-sm font-semibold text-slate-600 uppercase tracking-wide mb-3">
+          Support Lines
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {SUPPORT_RESOURCES.map((r) => (
+            <Card key={r.id} className="p-4 border border-stone-100 rounded-2xl shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${r.iconBg}`}>
+                  {r.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-slate-800 mb-0.5">{r.title}</p>
+                  <p className="text-xs text-slate-500 leading-relaxed mb-3">{r.description}</p>
+                  <a
+                    href={r.url}
+                    target={r.url.startsWith('http') ? '_blank' : undefined}
+                    rel={r.url.startsWith('http') ? 'noopener noreferrer' : undefined}
+                    className="inline-flex items-center gap-1.5 text-xs font-medium text-teal-600 bg-teal-50 hover:bg-teal-100 px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    {r.actionLabel}
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
                 </div>
               </div>
             </Card>
           ))}
         </div>
-      ) : (
-        <>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {supportResources.map((resource) => {
-              const Icon = resource.icon_name ? (iconMap[resource.icon_name] ?? Heart) : Heart;
-              return (
-                <Card key={resource.id} className="p-4">
-                  <div className="flex items-start space-x-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${resource.color_class ?? 'bg-blue-100 text-blue-600'}`}>
-                      <Icon className="w-5 h-5" />
+      </section>
+
+      {/* Articles */}
+      <section>
+        <h3 className="text-sm font-semibold text-slate-600 uppercase tracking-wide mb-3">
+          Helpful Articles
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {ARTICLES.map((article) => (
+            <a
+              key={article.id}
+              href={article.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block"
+            >
+              <Card className="p-4 border border-stone-100 rounded-2xl shadow-sm hover:border-teal-200 hover:shadow-md transition-all duration-150 cursor-pointer group">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <BookOpen className="w-3.5 h-3.5 text-teal-500 flex-shrink-0" />
+                      <p className="text-sm font-semibold text-slate-800 group-hover:text-teal-700 transition-colors">
+                        {article.title}
+                      </p>
                     </div>
-                    <div className="flex-1">
-                      <h3 className="mb-1">{resource.title}</h3>
-                      <p className="text-sm text-gray-600 mb-3">{resource.description}</p>
-                      {resource.action_label && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="text-blue-600 border-blue-200"
-                          onClick={() => resource.url && window.open(resource.url, '_blank')}
-                        >
-                          {resource.action_label}
-                          <ExternalLink className="w-3 h-3 ml-2" />
-                        </Button>
-                      )}
-                    </div>
+                    <p className="text-xs text-slate-500 leading-relaxed">{article.description}</p>
                   </div>
-                </Card>
-              );
-            })}
-          </div>
+                  <ExternalLink className="w-4 h-4 text-slate-300 group-hover:text-teal-400 flex-shrink-0 mt-0.5 transition-colors" />
+                </div>
+              </Card>
+            </a>
+          ))}
+        </div>
+      </section>
 
-          {articles.length > 0 && (
-            <div>
-              <h3 className="mb-3">Helpful Articles</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {articles.map((article) => (
-                  <Card
-                    key={article.id}
-                    className="p-4 hover:shadow-md transition-shadow cursor-pointer"
-                    onClick={() => article.url && window.open(article.url, '_blank')}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div className="flex-1">
-                        <div className="mb-1">{article.title}</div>
-                        <p className="text-sm text-gray-600">{article.description}</p>
-                      </div>
-                      <ExternalLink className="w-4 h-4 text-gray-400 flex-shrink-0 ml-2" />
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
-        </>
-      )}
-
-      <Card className="p-4 bg-blue-50 border-blue-200">
-        <h3 className="text-blue-900 mb-2">Remember</h3>
-        <p className="text-sm text-blue-800">
-          You're not alone. Reaching out for help is a sign of strength, not weakness.
-          Your mental health matters, and there are people who care and want to support you.
-        </p>
+      {/* Reminder banner */}
+      <Card className="p-4 bg-teal-50 border border-teal-100 rounded-2xl flex items-start gap-3">
+        <div className="w-8 h-8 bg-teal-100 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+          <Heart className="w-4 h-4 text-teal-600" fill="currentColor" />
+        </div>
+        <div>
+          <p className="text-sm font-semibold text-teal-800 mb-0.5">You are not alone</p>
+          <p className="text-xs text-teal-700 leading-relaxed">
+            Reaching out for help is a sign of strength. Your mental health matters, and there are
+            people who care and want to support you.
+          </p>
+        </div>
       </Card>
     </div>
   );

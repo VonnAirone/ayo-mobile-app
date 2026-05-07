@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, LogOut, Heart } from 'lucide-react';
+import { LayoutDashboard, Users, LogOut, Heart, ClipboardList } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
 import { daysSince } from '../lib/dates';
 
-type TabType = 'overview' | 'students';
+type TabType = 'overview' | 'students' | 'questions';
 
 export interface CheckInAnswer {
   questionId: string;
@@ -28,15 +28,18 @@ export interface CounselorStudent {
 
 export interface CounselorOutletContext {
   students: CounselorStudent[];
+  refreshStudents: () => void;
 }
 
 const tabToPath: Record<TabType, string> = {
   overview: '/counselor/overview',
   students: '/counselor/students',
+  questions: '/counselor/questions',
 };
 
 function getActiveTab(pathname: string): TabType {
   if (pathname.includes('/students')) return 'students';
+  if (pathname.includes('/questions')) return 'questions';
   return 'overview';
 }
 
@@ -153,9 +156,10 @@ export function CounselorDashboard() {
   const navItems = [
     { id: 'overview' as TabType, label: 'Overview', icon: LayoutDashboard },
     { id: 'students' as TabType, label: 'Students', icon: Users },
+    { id: 'questions' as TabType, label: 'Questions', icon: ClipboardList },
   ];
 
-  const outletContext: CounselorOutletContext = { students };
+  const outletContext: CounselorOutletContext = { students, refreshStudents: loadStudents };
 
   if (authLoading) return null;
 

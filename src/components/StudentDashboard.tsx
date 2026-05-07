@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Home, Calendar, BookOpen, User, LogOut, Heart } from 'lucide-react';
+import { Home, Calendar, BookOpen, User, LogOut, Heart, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
+import { hasCheckedInToday } from '../lib/streak';
 
 type TabType = 'home' | 'checkin' | 'history' | 'resources';
 
@@ -99,9 +100,11 @@ export function StudentDashboard() {
     navigate('/', { replace: true });
   }
 
+  const checkedInToday = hasCheckedInToday(checkIns);
+
   const navItems = [
     { id: 'home' as TabType, label: 'Home', icon: Home },
-    { id: 'checkin' as TabType, label: 'Check-In', icon: Calendar },
+    { id: 'checkin' as TabType, label: 'Check-In', icon: checkedInToday ? CheckCircle2 : Calendar, disabled: checkedInToday },
     { id: 'history' as TabType, label: 'History', icon: User },
     { id: 'resources' as TabType, label: 'Resources', icon: BookOpen },
   ];
@@ -152,18 +155,22 @@ export function StudentDashboard() {
           </div>
 
           <nav className="flex-1 px-3 py-5 space-y-0.5">
-            {navItems.map(({ id, label, icon: Icon }) => (
+            {navItems.map(({ id, label, icon: Icon, disabled }) => (
               <button
                 key={id}
-                onClick={() => navigate(tabToPath[id])}
+                onClick={() => !disabled && navigate(tabToPath[id])}
+                disabled={disabled}
                 className={`w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
-                  activeTab === id
+                  disabled
+                    ? 'text-slate-300 cursor-not-allowed'
+                    : activeTab === id
                     ? 'bg-teal-50 text-teal-700'
                     : 'text-slate-500 hover:bg-stone-50 hover:text-slate-700'
                 }`}
               >
                 <Icon className={`w-4.5 h-4.5 flex-shrink-0 ${activeTab === id ? 'text-teal-600' : ''}`} />
                 <span>{label}</span>
+                {disabled && <span className="ml-auto text-xs text-slate-300">Done ✓</span>}
               </button>
             ))}
           </nav>
@@ -189,12 +196,17 @@ export function StudentDashboard() {
       {activeTab !== 'checkin' && (
         <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-stone-100 z-10">
           <div className="flex justify-around">
-            {navItems.map(({ id, label, icon: Icon }) => (
+            {navItems.map(({ id, label, icon: Icon, disabled }) => (
               <button
                 key={id}
-                onClick={() => navigate(tabToPath[id])}
+                onClick={() => !disabled && navigate(tabToPath[id])}
+                disabled={disabled}
                 className={`flex-1 flex flex-col items-center py-3 transition-colors ${
-                  activeTab === id ? 'text-teal-600' : 'text-slate-400'
+                  disabled
+                    ? 'text-slate-300 cursor-not-allowed'
+                    : activeTab === id
+                    ? 'text-teal-600'
+                    : 'text-slate-400'
                 }`}
               >
                 <Icon className="w-5 h-5" />

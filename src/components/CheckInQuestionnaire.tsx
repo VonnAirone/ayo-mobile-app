@@ -3,56 +3,57 @@ import { useNavigate, useOutletContext } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { ChevronLeft, Check, AlertCircle } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+import { hasCheckedInToday } from '../lib/streak';
 import type { StudentOutletContext, CheckInAnswer } from './StudentDashboard';
 
 interface Question {
   id: string;
   text: string;
   category: string;
-  categoryIcon: string;
+  category_icon: string;
   type: 'yesno' | 'text';
-  optional?: boolean;
-  crisis?: boolean;
+  optional: boolean;
+  crisis: boolean;
+  order: number;
 }
 
-const QUESTIONS: Question[] = [
-  { id: 'home_abuse', text: 'Have you experienced physical harm or abuse in your home?', category: 'Home', categoryIcon: '🏠', type: 'yesno', crisis: true },
-  { id: 'home_runaway', text: 'Have you ever thought about running away or leaving your home?', category: 'Home', categoryIcon: '🏠', type: 'yesno' },
-  { id: 'edu_bullying', text: 'Have you experienced bullying or physical harm at school or at work?', category: 'Education & Work', categoryIcon: '📚', type: 'yesno', crisis: true },
-  { id: 'safety_suicidal_thoughts', text: 'Have you ever seriously thought about ending your life?', category: 'Safety', categoryIcon: '🛡️', type: 'yesno', crisis: true },
-  { id: 'substance_smoke', text: 'Do you smoke?', category: 'Substance Use', categoryIcon: '🚭', type: 'yesno' },
-  { id: 'substance_alcohol', text: 'Do you drink alcohol?', category: 'Substance Use', categoryIcon: '🚭', type: 'yesno' },
-  { id: 'substance_drugs', text: 'Have you seen or been exposed to illegal drugs?', category: 'Substance Use', categoryIcon: '🚭', type: 'yesno' },
-  { id: 'repro_relationship', text: 'Have you ever had a boyfriend or girlfriend?', category: 'Relationships', categoryIcon: '💙', type: 'yesno' },
-  { id: 'repro_sex', text: 'Have you ever had sexual intercourse?', category: 'Reproductive Health', categoryIcon: '💙', type: 'yesno' },
-  { id: 'repro_forced', text: 'Have you ever been forced to have sex?', category: 'Reproductive Health', categoryIcon: '💙', type: 'yesno', crisis: true },
-  { id: 'repro_pregnancy', text: 'Have you ever been pregnant or gotten someone pregnant?', category: 'Reproductive Health', categoryIcon: '💙', type: 'yesno' },
-  { id: 'counseling', text: 'Would you like to seek counseling or consultation to help you?', category: 'Support', categoryIcon: '🤝', type: 'yesno' },
-  { id: 'mh_wished_dead', text: 'Have you wished you were dead in the past few weeks?', category: 'Mental Health', categoryIcon: '🧠', type: 'yesno', crisis: true },
-  { id: 'mh_family_better_off', text: 'Have you felt that you and your family would be better off if you were gone in the past few weeks?', category: 'Mental Health', categoryIcon: '🧠', type: 'yesno', crisis: true },
-  { id: 'mh_thoughts_killing', text: 'Have you had thoughts about killing yourself in the past few weeks?', category: 'Mental Health', categoryIcon: '🧠', type: 'yesno', crisis: true },
-  { id: 'mh_tried_kill', text: 'Have you ever tried to kill yourself?', category: 'Mental Health', categoryIcon: '🧠', type: 'yesno', crisis: true },
-  { id: 'mh_current_thoughts', text: 'Are you having thoughts of killing yourself right now?', category: 'Mental Health', categoryIcon: '🧠', type: 'yesno', crisis: true },
-  { id: 'message', text: 'Is there anything you would like your counselor to know?', category: 'Final Note', categoryIcon: '✉️', type: 'text', optional: true },
-];
-
 export function CheckInQuestionnaire() {
-  const { handleCheckInSubmit } = useOutletContext<StudentOutletContext>();
+  const { handleCheckInSubmit, checkIns } = useOutletContext<StudentOutletContext>();
   const navigate = useNavigate();
 
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [loadingQuestions, setLoadingQuestions] = useState(true);
   const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [visible, setVisible] = useState(true);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const current = QUESTIONS[step];
-  const isLast = step === QUESTIONS.length - 1;
-  const currentAnswer = answers[current.id];
-  const isCrisisYes = !!current.crisis && currentAnswer === 'Yes';
-  const hasConcerningAnswers = QUESTIONS.some((q) => q.crisis && answers[q.id] === 'Yes');
+  // Redirect if student already completed today's check-in
+  useEffect(() => {
+    if (hasCheckedInToday(checkIns)) {
+      navigate('/student/home', { replace: true });
+    }
+  }, [checkIns, navigate]);
 
-  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+  useEffect(() => {
+    supabase
+      .from('questions')
+      .select('*')
+      .order('order', { ascending: true })
+      .then(({ data }) => {
+        setQuestions(data ?? []);
+        setLoadingQuestions(false);
+      });
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+  }, []);
+
+  const current = questions[step];
+  const isLast = step === questions.length - 1;
+  const currentAnswer = current ? answers[current.id] : undefined;
+  const isCrisisYes = !!current?.crisis && currentAnswer === 'Yes';
+  const hasConcerningAnswers = questions.some((q) => q.crisis && answers[q.id] === 'Yes');
 
   function transition(newStep: number) {
     if (timerRef.current) clearTimeout(timerRef.current);
@@ -75,7 +76,7 @@ export function CheckInQuestionnaire() {
 
   async function handleSubmit() {
     setSubmitting(true);
-    const formatted: CheckInAnswer[] = QUESTIONS.map((q) => ({
+    const formatted: CheckInAnswer[] = questions.map((q) => ({
       questionId: q.id,
       question: q.text,
       answer: answers[q.id] ?? '',
@@ -84,7 +85,32 @@ export function CheckInQuestionnaire() {
     setSubmitting(false);
   }
 
-  const progressPct = QUESTIONS.length > 1 ? (step / (QUESTIONS.length - 1)) * 100 : 0;
+  const progressPct = questions.length > 1 ? (step / (questions.length - 1)) * 100 : 0;
+
+  if (loadingQuestions) {
+    return (
+      <div className="min-h-screen bg-stone-50 flex items-center justify-center">
+        <div className="text-slate-400 text-sm">Loading questions…</div>
+      </div>
+    );
+  }
+
+  if (questions.length === 0) {
+    return (
+      <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center gap-4 px-6">
+        <p className="text-slate-500 text-sm text-center">
+          No check-in questions have been set up yet. Please contact your counselor.
+        </p>
+        <Button
+          onClick={() => navigate('/student/home')}
+          variant="outline"
+          className="rounded-xl"
+        >
+          Go Back
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-stone-50 flex flex-col max-w-lg mx-auto">
@@ -107,7 +133,7 @@ export function CheckInQuestionnaire() {
           <span className="text-sm">{step === 0 ? 'Cancel' : 'Back'}</span>
         </button>
         <span className="text-xs text-slate-400 tabular-nums bg-stone-200 px-2.5 py-1 rounded-full">
-          {step + 1} / {QUESTIONS.length}
+          {step + 1} / {questions.length}
         </span>
       </div>
 
@@ -118,7 +144,7 @@ export function CheckInQuestionnaire() {
         {/* Category badge */}
         <div className="mt-2 mb-8">
           <span className="inline-flex items-center gap-1.5 text-xs font-medium text-teal-700 bg-teal-50 px-3 py-1.5 rounded-full">
-            <span aria-hidden="true">{current.categoryIcon}</span>
+            <span aria-hidden="true">{current.category_icon}</span>
             <span>{current.category}</span>
           </span>
         </div>
@@ -188,11 +214,11 @@ export function CheckInQuestionnaire() {
           </div>
         )}
 
-        {/* Text answer (final step) */}
+        {/* Text answer */}
         {current.type === 'text' && (
           <div className="space-y-4 mt-auto">
             <Textarea
-              placeholder="Optional — leave blank if nothing to add"
+              placeholder={current.optional ? 'Optional — leave blank if nothing to add' : 'Enter your response…'}
               value={currentAnswer ?? ''}
               onChange={(e) => setAnswers((prev) => ({ ...prev, [current.id]: e.target.value }))}
               rows={5}
@@ -210,7 +236,7 @@ export function CheckInQuestionnaire() {
 
             <Button
               onClick={handleSubmit}
-              disabled={submitting}
+              disabled={submitting || (!current.optional && !currentAnswer?.trim())}
               className="w-full h-13 rounded-2xl bg-teal-600 hover:bg-teal-700 text-base shadow-sm"
             >
               {submitting ? 'Submitting…' : 'Submit Check-In'}

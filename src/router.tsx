@@ -8,6 +8,7 @@ import { Resources } from './components/Resources';
 import { CounselorDashboard } from './components/CounselorDashboard';
 import { CounselorOverview } from './components/CounselorOverview';
 import { StudentList } from './components/StudentList';
+import { QuestionsManager } from './components/QuestionsManager';
 
 export const router = createBrowserRouter([
   {
@@ -32,6 +33,7 @@ export const router = createBrowserRouter([
       { index: true, element: <Navigate to="overview" replace /> },
       { path: 'overview', element: <CounselorOverview /> },
       { path: 'students', element: <StudentList /> },
+      { path: 'questions', element: <QuestionsManager /> },
     ],
   },
 ]);

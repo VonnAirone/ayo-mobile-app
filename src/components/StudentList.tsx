@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useOutletContext, useSearchParams } from 'react-router-dom';
 import { Search, Users, Pencil, Trash2, X } from 'lucide-react';
 import { Card } from './ui/card';
 import { Input } from './ui/input';
@@ -25,8 +25,20 @@ const ALERT_ORDER: Record<string, number> = { high: 0, medium: 1, none: 2 };
 
 export function StudentList() {
   const { students, refreshStudents } = useOutletContext<CounselorOutletContext>();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedStudent, setSelectedStudent] = useState<CounselorStudent | null>(null);
+
+  // Auto-open a student when arriving with ?student=<id> (e.g. from Needs Attention cards).
+  useEffect(() => {
+    const id = searchParams.get('student');
+    if (!id) return;
+    const match = students.find((s) => s.id === id);
+    if (match) {
+      setSelectedStudent(match);
+      setSearchParams({}, { replace: true });
+    }
+  }, [students, searchParams, setSearchParams]);
 
   // Edit state
   const [editTarget, setEditTarget] = useState<CounselorStudent | null>(null);
@@ -135,7 +147,7 @@ export function StudentList() {
                 key={student.id}
                 className={`group relative w-full text-left p-3.5 rounded-xl border transition-all duration-150 cursor-pointer ${
                   isSelected
-                    ? 'border-teal-200 bg-teal-50 shadow-sm'
+                    ? 'border-teal-300/70 bg-teal-50'
                     : 'border-transparent hover:bg-stone-50 hover:border-stone-200'
                 }`}
                 onClick={() => setSelectedStudent(student)}
@@ -220,7 +232,7 @@ export function StudentList() {
       {/* Mobile layout */}
       <div className="lg:hidden">
         <div className="px-4 pt-5 pb-3">
-          <h2 className="text-2xl font-semibold text-slate-800">Students</h2>
+          <h2 className="font-display text-3xl font-medium text-slate-800 tracking-tight">Students</h2>
           <p className="text-slate-400 text-sm mt-0.5">View and manage student check-ins</p>
         </div>
         {listPanel}

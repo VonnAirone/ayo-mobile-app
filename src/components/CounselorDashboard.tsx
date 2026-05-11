@@ -4,6 +4,7 @@ import { LayoutDashboard, Users, LogOut, Heart, ClipboardList } from 'lucide-rea
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
 import { daysSince } from '../lib/dates';
+import { MOOD_SCORE, CONFIDENCE_SCORE } from '../lib/severity';
 
 type TabType = 'overview' | 'students' | 'questions';
 
@@ -11,6 +12,7 @@ export interface CheckInAnswer {
   questionId: string;
   question: string;
   answer: string;
+  crisis?: boolean;
 }
 
 export interface CounselorStudent {
@@ -42,22 +44,6 @@ function getActiveTab(pathname: string): TabType {
   if (pathname.includes('/questions')) return 'questions';
   return 'overview';
 }
-
-// 0 = fine, 1 = medium concern, 2 = high concern
-const MOOD_SCORE: Record<string, number> = {
-  '😊 Great': 0,
-  '🙂 Good': 0,
-  '😐 Okay': 0,
-  '😔 Low': 1,
-  '😞 Really struggling': 2,
-};
-
-const CONFIDENCE_SCORE: Record<string, number> = {
-  'Handling it well': 0,
-  'Managing okay': 0,
-  'Struggling a bit': 1,
-  'Feeling overwhelmed': 2,
-};
 
 function deriveAlertLevel(
   latestAnswers: CheckInAnswer[],
@@ -166,15 +152,15 @@ export function CounselorDashboard() {
   return (
     <div className="min-h-screen bg-stone-50">
       {/* Mobile header */}
-      <header className="lg:hidden bg-white border-b border-stone-100 px-4 py-3.5 sticky top-0 z-10">
+      <header className="lg:hidden bg-white/70 backdrop-blur-md border-b border-stone-100/60 px-4 py-3.5 sticky top-0 z-10">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2.5">
-            <div className="w-8 h-8 bg-teal-500 rounded-full flex items-center justify-center">
+            <div className="w-8 h-8 bg-gradient-to-br from-teal-500 to-emerald-500 rounded-full flex items-center justify-center shadow-sm">
               <Heart className="w-4 h-4 text-white" fill="currentColor" />
             </div>
             <div className="flex items-center space-x-2">
               <h1 className="text-lg font-semibold text-slate-800 tracking-tight">Ayo</h1>
-              <span className="text-xs text-slate-400 bg-stone-100 px-2 py-0.5 rounded-full">Counselor</span>
+              <span className="text-xs text-teal-700 bg-teal-50 border border-teal-100/60 px-2 py-0.5 rounded-full font-medium">Counselor</span>
             </div>
           </div>
           <button
@@ -189,9 +175,9 @@ export function CounselorDashboard() {
 
       <div className="flex">
         {/* Desktop sidebar */}
-        <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-white border-r border-stone-100">
-          <div className="flex items-center space-x-3 px-6 py-6 border-b border-stone-100">
-            <div className="w-9 h-9 bg-teal-500 rounded-full flex items-center justify-center shadow-sm">
+        <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-white/70 backdrop-blur-md border-r border-stone-100/60">
+          <div className="flex items-center space-x-3 px-6 py-6 border-b border-stone-100/60">
+            <div className="w-9 h-9 bg-gradient-to-br from-teal-500 to-emerald-500 rounded-full flex items-center justify-center shadow-sm">
               <Heart className="w-5 h-5 text-white" fill="currentColor" />
             </div>
             <div>
@@ -217,7 +203,7 @@ export function CounselorDashboard() {
             ))}
           </nav>
 
-          <div className="px-3 py-5 border-t border-stone-100">
+          <div className="px-3 py-5 border-t border-stone-100/60">
             <button
               onClick={handleLogout}
               className="w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:bg-stone-50 hover:text-slate-600 transition-all duration-150"
@@ -229,26 +215,34 @@ export function CounselorDashboard() {
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 lg:ml-64 pb-20 lg:pb-0 min-h-screen">
+        <main className="flex-1 lg:ml-64 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 min-h-screen">
           <Outlet context={outletContext} />
         </main>
       </div>
 
-      {/* Mobile bottom nav */}
-      <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-stone-100 z-10">
-        <div className="flex justify-around">
-          {navItems.map(({ id, label, icon: Icon }) => (
-            <button
-              key={id}
-              onClick={() => navigate(tabToPath[id])}
-              className={`flex-1 flex flex-col items-center py-3 transition-colors ${
-                activeTab === id ? 'text-teal-600' : 'text-slate-400'
-              }`}
-            >
-              <Icon className="w-5 h-5" />
-              <span className="text-xs mt-1 font-medium">{label}</span>
-            </button>
-          ))}
+      {/* Mobile bottom nav — stuck to bottom */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-10">
+        <div className="bg-white/95 backdrop-blur-lg border-t border-stone-200/80 px-2 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
+          <div className="flex justify-around items-center">
+            {navItems.map(({ id, label, icon: Icon }) => {
+              const isActive = activeTab === id;
+              return (
+                <button
+                  key={id}
+                  onClick={() => navigate(tabToPath[id])}
+                  aria-label={label}
+                  className={`relative flex-1 flex flex-col items-center py-2 px-1 rounded-2xl transition-all duration-200 ${
+                    isActive
+                      ? 'text-teal-700 bg-teal-50'
+                      : 'text-slate-400 hover:text-slate-600'
+                  }`}
+                >
+                  <Icon className={`w-5 h-5 ${isActive ? 'scale-110' : ''} transition-transform`} />
+                  <span className="text-[10px] mt-0.5 font-medium">{label}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </nav>
     </div>

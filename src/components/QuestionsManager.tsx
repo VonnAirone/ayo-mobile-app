@@ -140,7 +140,7 @@ export function QuestionsManager() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h2 className="text-2xl font-semibold text-slate-800">Questions</h2>
+          <h2 className="font-display text-3xl font-medium text-slate-800 tracking-tight">Questions</h2>
           <p className="text-slate-400 text-sm mt-0.5">
             Manage the questions shown to students during check-in
           </p>
@@ -170,7 +170,7 @@ export function QuestionsManager() {
           {questions.map((q, idx) => (
             <Card
               key={q.id}
-              className="border border-stone-100 rounded-2xl shadow-sm overflow-hidden"
+              className="border border-stone-200/70 rounded-2xl overflow-hidden"
             >
               <div className="flex items-start gap-3 p-4">
                 {/* Drag handle visual (order indicator) */}

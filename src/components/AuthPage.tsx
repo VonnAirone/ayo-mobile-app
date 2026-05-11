@@ -89,7 +89,7 @@ export function AuthPage() {
       </div>
 
       {/* Card */}
-      <div className="w-full max-w-sm bg-white rounded-2xl border border-stone-100 shadow-sm p-6">
+      <div className="w-full max-w-sm bg-white rounded-2xl border border-stone-200/70 p-6">
         {/* Mode toggle */}
         <div className="flex bg-stone-100 rounded-xl p-1 mb-6">
           {(['login', 'signup'] as const).map((m) => (

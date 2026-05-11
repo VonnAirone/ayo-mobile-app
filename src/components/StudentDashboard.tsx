@@ -4,6 +4,7 @@ import { Home, Calendar, BookOpen, User, LogOut, Heart, CheckCircle2 } from 'luc
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
 import { hasCheckedInToday } from '../lib/streak';
+import { StudentNotifications } from './StudentNotifications';
 
 type TabType = 'home' | 'checkin' | 'history' | 'resources';
 
@@ -11,6 +12,7 @@ export interface CheckInAnswer {
   questionId: string;
   question: string;
   answer: string;
+  crisis?: boolean;
 }
 
 export interface CheckIn {
@@ -106,7 +108,7 @@ export function StudentDashboard() {
     { id: 'home' as TabType, label: 'Home', icon: Home },
     { id: 'checkin' as TabType, label: 'Check-In', icon: checkedInToday ? CheckCircle2 : Calendar, disabled: checkedInToday },
     { id: 'history' as TabType, label: 'History', icon: User },
-    { id: 'resources' as TabType, label: 'Resources', icon: BookOpen },
+    { id: 'resources' as TabType, label: 'Support', icon: BookOpen },
   ];
 
   const outletContext: StudentOutletContext = {
@@ -120,30 +122,33 @@ export function StudentDashboard() {
     <div className="min-h-screen bg-stone-50">
       {/* Mobile header — hidden on questionnaire so Yes/No buttons fit without scrolling */}
       {activeTab !== 'checkin' && (
-        <header className="lg:hidden bg-white border-b border-stone-100 px-4 py-3.5 sticky top-0 z-10">
+        <header className="lg:hidden bg-white/70 backdrop-blur-md border-b border-stone-100/60 px-4 py-3.5 sticky top-0 z-10">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2.5">
-              <div className="w-8 h-8 bg-teal-500 rounded-full flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-to-br from-teal-500 to-emerald-500 rounded-full flex items-center justify-center shadow-sm">
                 <Heart className="w-4 h-4 text-white" fill="currentColor" />
               </div>
               <h1 className="text-lg font-semibold text-slate-800 tracking-tight">Ayo</h1>
             </div>
-            <button
-              onClick={handleLogout}
-              className="p-2 hover:bg-stone-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
-              aria-label="Log out"
-            >
-              <LogOut className="w-5 h-5" />
-            </button>
+            <div className="flex items-center gap-1">
+              <StudentNotifications variant="header" />
+              <button
+                onClick={handleLogout}
+                className="p-2 hover:bg-stone-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
+                aria-label="Log out"
+              >
+                <LogOut className="w-5 h-5" />
+              </button>
+            </div>
           </div>
         </header>
       )}
 
       <div className="flex">
         {/* Desktop sidebar */}
-        <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-white border-r border-stone-100">
-          <div className="flex items-center space-x-3 px-6 py-6 border-b border-stone-100">
-            <div className="w-9 h-9 bg-teal-500 rounded-full flex items-center justify-center shadow-sm">
+        <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:fixed lg:inset-y-0 bg-white/70 backdrop-blur-md border-r border-stone-100/60">
+          <div className="flex items-center space-x-3 px-6 py-6 border-b border-stone-100/60">
+            <div className="w-9 h-9 bg-gradient-to-br from-teal-500 to-emerald-500 rounded-full flex items-center justify-center shadow-sm">
               <Heart className="w-5 h-5 text-white" fill="currentColor" />
             </div>
             <div>
@@ -175,7 +180,8 @@ export function StudentDashboard() {
             ))}
           </nav>
 
-          <div className="px-3 py-5 border-t border-stone-100">
+          <div className="px-3 py-5 border-t border-stone-100 space-y-0.5">
+            <StudentNotifications variant="sidebar" />
             <button
               onClick={handleLogout}
               className="w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:bg-stone-50 hover:text-slate-600 transition-all duration-150"
@@ -187,35 +193,38 @@ export function StudentDashboard() {
         </aside>
 
         {/* Main content */}
-        <main className={`flex-1 lg:ml-64 min-h-screen ${activeTab !== 'checkin' ? 'pb-20 lg:pb-0' : ''}`}>
+        <main className={`flex-1 lg:ml-64 min-h-screen ${activeTab !== 'checkin' ? 'pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0' : ''}`}>
           <Outlet context={outletContext} />
         </main>
       </div>
 
-      {/* Mobile bottom nav — hidden on questionnaire to free space for Yes/No buttons */}
+      {/* Mobile bottom nav — stuck to bottom, hidden on questionnaire */}
       {activeTab !== 'checkin' && (
-        <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-stone-100 z-10">
-          <div className="flex justify-around">
-            {navItems.map(({ id, label, icon: Icon, disabled }) => (
-              <button
-                key={id}
-                onClick={() => !disabled && navigate(tabToPath[id])}
-                disabled={disabled}
-                className={`flex-1 flex flex-col items-center py-3 transition-colors ${
-                  disabled
-                    ? 'text-slate-300 cursor-not-allowed'
-                    : activeTab === id
-                    ? 'text-teal-600'
-                    : 'text-slate-400'
-                }`}
-              >
-                <Icon className="w-5 h-5" />
-                <span className="text-xs mt-1 font-medium">{label}</span>
-                {activeTab === id && (
-                  <span className="absolute top-0 w-6 h-0.5 bg-teal-500 rounded-full -mt-px" />
-                )}
-              </button>
-            ))}
+        <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-10">
+          <div className="bg-white/95 backdrop-blur-lg border-t border-stone-200/80 px-2 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
+            <div className="flex justify-around items-center">
+              {navItems.map(({ id, label, icon: Icon, disabled }) => {
+                const isActive = activeTab === id;
+                return (
+                  <button
+                    key={id}
+                    onClick={() => !disabled && navigate(tabToPath[id])}
+                    disabled={disabled}
+                    aria-label={label}
+                    className={`relative flex-1 flex flex-col items-center py-2 px-1 rounded-2xl transition-all duration-200 ${
+                      disabled
+                        ? 'text-slate-300 cursor-not-allowed'
+                        : isActive
+                        ? 'text-teal-700 bg-teal-50'
+                        : 'text-slate-400 hover:text-slate-600'
+                    }`}
+                  >
+                    <Icon className={`w-5 h-5 ${isActive ? 'scale-110' : ''} transition-transform`} />
+                    <span className="text-[10px] mt-0.5 font-medium">{label}</span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
         </nav>
       )}

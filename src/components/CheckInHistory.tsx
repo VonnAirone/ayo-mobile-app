@@ -49,12 +49,12 @@ export function CheckInHistory() {
   return (
     <div className="p-6 lg:p-8 max-w-2xl space-y-5">
       <div className="pt-2">
-        <h2 className="text-2xl font-semibold text-slate-800">Check-In History</h2>
+        <h2 className="font-display text-3xl font-medium text-slate-800 tracking-tight">Check-In History</h2>
         <p className="text-slate-400 text-sm mt-0.5">Your past well-being check-ins</p>
       </div>
 
       {checkIns.length === 0 ? (
-        <Card className="p-14 text-center border border-stone-100 rounded-2xl shadow-sm">
+        <Card className="p-14 text-center border border-stone-200/70 rounded-2xl">
           <div className="text-3xl mb-3">🌱</div>
           <p className="text-slate-400 text-sm">No check-ins yet. Start your first one today!</p>
         </Card>
@@ -71,7 +71,7 @@ export function CheckInHistory() {
             return (
               <Card
                 key={checkIn.id}
-                className="border border-stone-100 rounded-2xl shadow-sm overflow-hidden"
+                className="border border-stone-200/70 rounded-2xl overflow-hidden"
               >
                 {/* Clickable header */}
                 <button

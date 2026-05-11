@@ -1,5 +1,6 @@
-import { useOutletContext } from 'react-router-dom';
-import { AlertTriangle, TrendingUp, Users, Calendar, Clock, CheckCircle2, ChevronRight } from 'lucide-react';
+import { useNavigate, useOutletContext } from 'react-router-dom';
+import { AlertTriangle, TrendingUp, Users, Calendar, Clock, CheckCircle2, ChevronRight, Heart } from 'lucide-react';
+import { useAuth } from '../lib/AuthContext';
 import { Card } from './ui/card';
 import type { CounselorOutletContext } from './CounselorDashboard';
 
@@ -11,16 +12,21 @@ function daysSinceDate(dateString: string): number {
   return Math.floor((Date.now() - new Date(dateString).getTime()) / (1000 * 60 * 60 * 24));
 }
 
-function formatLastSeen(dateString: string): string {
-  if (!dateString) return 'Never';
-  const d = daysSinceDate(dateString);
-  if (d === 0) return 'Today';
-  if (d === 1) return 'Yesterday';
-  return `${d}d ago`;
+function getCounselorGreeting(hour: number): string {
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
 }
 
 export function CounselorOverview() {
   const { students } = useOutletContext<CounselorOutletContext>();
+  const { profile } = useAuth();
+  const navigate = useNavigate();
+  const firstName = profile?.name?.split(' ')[0] ?? '';
+
+  function openStudent(id: string) {
+    navigate(`/counselor/students?student=${id}`);
+  }
 
   const totalStudents = students.length;
   const highPriority = students.filter((s) => s.alertLevel === 'high');
@@ -68,29 +74,44 @@ export function CounselorOverview() {
       label: 'High Priority',
       value: highPriority.length,
       color: 'text-rose-500',
-      bg: 'bg-rose-50',
-      icon: AlertTriangle,
+      bg: 'bg-rose-50/80',
+      icon: Heart,
       iconColor: 'text-rose-500',
     },
     {
-      label: 'Medium Priority',
+      label: 'Gentle Watch',
       value: mediumPriority.length,
-      color: 'text-amber-500',
-      bg: 'bg-amber-50',
+      color: 'text-amber-600',
+      bg: 'bg-amber-50/80',
       icon: AlertTriangle,
       iconColor: 'text-amber-500',
     },
   ];
 
+  const empathyLine = (() => {
+    if (totalStudents === 0) return 'No students yet — your space is ready for them.';
+    const checked = checkedInToday.length;
+    if (highPriority.length > 0) {
+      return `${checked} student${checked === 1 ? '' : 's'} checked in today — ${highPriority.length} may need a kind word.`;
+    }
+    if (mediumPriority.length > 0) {
+      return `${checked} student${checked === 1 ? '' : 's'} checked in today — keep a gentle eye on ${mediumPriority.length}.`;
+    }
+    if (checked > 0) return `${checked} student${checked === 1 ? '' : 's'} checked in today. Everyone seems to be doing okay.`;
+    return 'A quiet day so far — no new check-ins yet.';
+  })();
+
   return (
     <div className="p-6 lg:p-8 max-w-6xl space-y-6">
       {/* Header */}
-      <div className="flex items-start justify-between pt-2">
+      <div className="flex items-start justify-between pt-2 gap-4">
         <div>
-          <h2 className="text-2xl font-semibold text-slate-800">Dashboard</h2>
-          <p className="text-slate-400 text-sm mt-0.5">Student well-being overview</p>
+          <h2 className="font-display text-3xl font-medium text-slate-800 tracking-tight">
+            {getCounselorGreeting(new Date().getHours())}{firstName ? `, ${firstName}` : ''}
+          </h2>
+          <p className="text-slate-500 text-sm mt-1 max-w-xl leading-relaxed">{empathyLine}</p>
         </div>
-        <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 bg-white border border-stone-100 px-3 py-1.5 rounded-full shadow-sm">
+        <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-500 bg-white border border-stone-200/70 px-3 py-1.5 rounded-full flex-shrink-0">
           <Calendar className="w-3.5 h-3.5" />
           <span>{today}</span>
         </div>
@@ -99,12 +120,17 @@ export function CounselorOverview() {
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {stats.map(({ label, value, color, bg, icon: Icon, iconColor }) => (
-          <Card key={label} className="p-5 border border-stone-100 rounded-2xl shadow-sm">
-            <div className={`w-10 h-10 ${bg} rounded-xl flex items-center justify-center mb-3`}>
+          <Card
+            key={label}
+            className="flex flex-row items-center gap-3 p-3.5 border border-stone-200/70 rounded-2xl bg-white"
+          >
+            <div className={`w-10 h-10 ${bg} rounded-xl flex items-center justify-center flex-shrink-0`}>
               <Icon className={`w-5 h-5 ${iconColor}`} />
             </div>
-            <div className={`text-3xl font-semibold ${color}`}>{value}</div>
-            <div className="text-xs text-slate-400 mt-1 font-medium">{label}</div>
+            <div className="min-w-0">
+              <div className={`text-2xl font-semibold leading-none ${color}`}>{value}</div>
+              <div className="text-xs text-slate-400 mt-1 font-medium truncate">{label}</div>
+            </div>
           </Card>
         ))}
       </div>
@@ -125,7 +151,7 @@ export function CounselorOverview() {
           </div>
 
           {studentsNeedingAttention.length === 0 ? (
-            <Card className="p-10 text-center border border-stone-100 rounded-2xl shadow-sm">
+            <Card className="p-10 text-center border border-stone-200/70 rounded-2xl bg-gradient-to-br from-white to-emerald-50/40">
               <div className="text-3xl mb-2">🌿</div>
               <p className="text-slate-700 text-sm font-medium">All clear</p>
               <p className="text-slate-400 text-xs mt-1">No students need immediate attention right now</p>
@@ -138,10 +164,20 @@ export function CounselorOverview() {
                 return (
                   <Card
                     key={student.id}
-                    className={`p-4 border rounded-2xl shadow-sm ${
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => openStudent(student.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        openStudent(student.id);
+                      }
+                    }}
+                    aria-label={`Open ${student.name}'s details`}
+                    className={`p-4 border rounded-2xl cursor-pointer transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 ${
                       isHigh
-                        ? 'border-rose-100 bg-rose-50/40'
-                        : 'border-amber-100 bg-amber-50/30'
+                        ? 'border-rose-200/60 bg-rose-50/40 hover:bg-rose-50/70 hover:border-rose-300/70'
+                        : 'border-amber-200/60 bg-amber-50/30 hover:bg-amber-50/60 hover:border-amber-300/70'
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -161,10 +197,10 @@ export function CounselorOverview() {
                             className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                               isHigh
                                 ? 'bg-rose-100 text-rose-600'
-                                : 'bg-amber-100 text-amber-600'
+                                : 'bg-amber-100 text-amber-700'
                             }`}
                           >
-                            {isHigh ? 'High' : 'Medium'}
+                            {isHigh ? 'High' : 'Gentle Watch'}
                           </span>
                         </div>
                         <div className="flex items-center gap-3 mt-1 flex-wrap">
@@ -188,7 +224,7 @@ export function CounselorOverview() {
                             {student.recentConcerns.slice(0, 3).map((concern, idx) => (
                               <span
                                 key={idx}
-                                className="text-xs bg-white border border-stone-200 text-slate-500 px-2 py-0.5 rounded-full"
+                                className="text-xs bg-white border border-stone-200/70 text-slate-500 px-2 py-0.5 rounded-full"
                               >
                                 {concern}
                               </span>
@@ -208,7 +244,7 @@ export function CounselorOverview() {
         {/* Right sidebar */}
         <div className="space-y-4">
           {/* Participation */}
-          <Card className="p-5 border border-stone-100 rounded-2xl shadow-sm">
+          <Card className="p-5 border border-stone-200/70 rounded-2xl bg-white/85 backdrop-blur-sm">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-sm font-semibold text-slate-700">Participation</h3>
               <TrendingUp className="w-4 h-4 text-teal-500" />
@@ -228,7 +264,7 @@ export function CounselorOverview() {
 
           {/* Inactive / never checked in */}
           {(longInactive.length > 0 || neverCheckedIn.length > 0) && (
-            <Card className="p-5 border border-stone-100 rounded-2xl shadow-sm">
+            <Card className="p-5 border border-stone-200/70 rounded-2xl bg-white/85 backdrop-blur-sm">
               <div className="flex items-center gap-2 mb-3">
                 <Clock className="w-4 h-4 text-slate-400" />
                 <h3 className="text-sm font-semibold text-slate-700">Not Seen Recently</h3>
@@ -261,9 +297,10 @@ export function CounselorOverview() {
           )}
 
           {/* Today's focus */}
-          <Card className="p-5 bg-teal-50 border border-teal-100 rounded-2xl shadow-sm">
-            <h3 className="text-sm font-semibold text-slate-700 mb-3">Today's Focus</h3>
-            <ul className="space-y-2.5">
+          <Card className="relative overflow-hidden p-5 bg-gradient-to-br from-teal-50 to-emerald-50 border border-teal-200/50 rounded-2xl">
+            <span className="blob" style={{ width: 140, height: 140, background: '#a7f3d0', top: -60, right: -50 }} aria-hidden="true" />
+            <h3 className="relative text-sm font-semibold text-slate-700 mb-3">Today's Focus</h3>
+            <ul className="relative space-y-2.5">
               {highPriority.length > 0 && (
                 <li className="flex items-start gap-2">
                   <span className="w-1.5 h-1.5 bg-rose-400 rounded-full mt-1.5 flex-shrink-0" />
@@ -313,7 +350,7 @@ export function CounselorOverview() {
             {checkedInToday.map((s) => (
               <div
                 key={s.id}
-                className="flex items-center gap-2 bg-white border border-stone-100 rounded-full px-3 py-1.5 shadow-sm"
+                className="flex items-center gap-2 bg-white border border-stone-200/70 rounded-full px-3 py-1.5"
               >
                 <div
                   className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${

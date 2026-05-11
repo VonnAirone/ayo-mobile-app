@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
-import { ChevronLeft, Check, AlertCircle } from 'lucide-react';
+import { ChevronLeft, Check, AlertCircle, ArrowRight } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { hasCheckedInToday } from '../lib/streak';
 import type { StudentOutletContext, CheckInAnswer } from './StudentDashboard';
@@ -65,13 +65,7 @@ export function CheckInQuestionnaire() {
   }
 
   function selectYesNo(value: 'Yes' | 'No') {
-    if (timerRef.current) clearTimeout(timerRef.current);
     setAnswers((prev) => ({ ...prev, [current.id]: value }));
-
-    const willCrisis = current.crisis && value === 'Yes';
-    if (!willCrisis && !isLast) {
-      timerRef.current = setTimeout(() => transition(step + 1), 350);
-    }
   }
 
   async function handleSubmit() {
@@ -80,12 +74,28 @@ export function CheckInQuestionnaire() {
       questionId: q.id,
       question: q.text,
       answer: answers[q.id] ?? '',
+      crisis: q.crisis,
     }));
     await handleCheckInSubmit({ answers: formatted });
     setSubmitting(false);
   }
 
-  const progressPct = questions.length > 1 ? (step / (questions.length - 1)) * 100 : 0;
+  function handleNext() {
+    if (isLast) {
+      handleSubmit();
+    } else {
+      transition(step + 1);
+    }
+  }
+
+  // Continue button enablement
+  const canContinue = (() => {
+    if (!current) return false;
+    if (current.type === 'yesno') return !!currentAnswer;
+    // text
+    if (current.optional) return true;
+    return !!currentAnswer?.trim();
+  })();
 
   if (loadingQuestions) {
     return (
@@ -114,55 +124,87 @@ export function CheckInQuestionnaire() {
 
   return (
     <div className="min-h-screen bg-stone-50 flex flex-col max-w-lg mx-auto">
-      {/* Progress strip */}
-      <div className="w-full h-1 bg-stone-200 flex-shrink-0">
-        <div
-          className="h-1 bg-teal-500 transition-all duration-300 rounded-r-full"
-          style={{ width: `${progressPct}%` }}
-        />
-      </div>
-
-      {/* Nav bar */}
-      <div className="flex items-center justify-between px-5 py-3.5 flex-shrink-0">
+      {/* Top bar: back arrow + step counter inline */}
+      <div className="flex items-center gap-3 px-5 pt-4 pb-3 flex-shrink-0">
         <button
           onClick={() => (step === 0 ? navigate('/student/home') : transition(step - 1))}
-          className="flex items-center gap-1 text-slate-400 hover:text-slate-600 transition-colors"
+          className="p-1 -m-1 text-slate-500 hover:text-slate-700 transition-colors"
           aria-label={step === 0 ? 'Cancel' : 'Go back'}
         >
           <ChevronLeft className="w-5 h-5" />
-          <span className="text-sm">{step === 0 ? 'Cancel' : 'Back'}</span>
         </button>
-        <span className="text-xs text-slate-400 tabular-nums bg-stone-200 px-2.5 py-1 rounded-full">
-          {step + 1} / {questions.length}
+        <span className="text-sm font-medium text-slate-500 tabular-nums">
+          {step + 1} of {questions.length}
         </span>
+      </div>
+
+      {/* Segmented progress */}
+      <div className="flex gap-1.5 px-5 pb-5 flex-shrink-0">
+        {questions.map((_, i) => (
+          <div
+            key={i}
+            className="flex-1 h-1 rounded-full bg-stone-200/70 overflow-hidden"
+          >
+            <div
+              className={`h-full bg-gradient-to-r from-teal-500 to-emerald-500 transition-all duration-500 rounded-full ${
+                i <= step ? 'w-full' : 'w-0'
+              }`}
+            />
+          </div>
+        ))}
       </div>
 
       {/* Content */}
       <div
-        className={`flex-1 flex flex-col px-6 pb-10 transition-opacity duration-150 ${visible ? 'opacity-100' : 'opacity-0'}`}
+        className={`flex-1 flex flex-col px-6 pb-6 transition-opacity duration-150 ${visible ? 'opacity-100' : 'opacity-0'}`}
       >
-        {/* Category badge */}
-        <div className="mt-2 mb-8">
-          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-teal-700 bg-teal-50 px-3 py-1.5 rounded-full">
-            <span aria-hidden="true">{current.category_icon}</span>
-            <span>{current.category}</span>
+        {/* Category label */}
+        <div className="mb-4">
+          <span className="text-[11px] font-semibold tracking-[0.2em] text-slate-400 uppercase">
+            {current.category}
           </span>
         </div>
 
-        {/* Question */}
-        <h2 className="text-xl font-semibold text-slate-800 leading-snug">
+        {/* Question — editorial serif */}
+        <h2 className="font-display text-3xl text-slate-800 leading-[1.2] tracking-tight">
           {current.text}
         </h2>
 
-        <p className="text-xs text-slate-400 mt-3 mb-10 leading-relaxed">
-          Your answers are private and shared only with your counselor.
+        <p className="text-sm text-slate-400 mt-3 leading-relaxed">
+          No right answer. Take your time.
         </p>
 
         {/* Yes / No answers */}
         {current.type === 'yesno' && (
-          <div className="space-y-3 mt-auto">
+          <div className="mt-8 space-y-3">
+            {(['Yes', 'No'] as const).map((option) => {
+              const selected = currentAnswer === option;
+              return (
+                <button
+                  key={option}
+                  onClick={() => selectYesNo(option)}
+                  className={`w-full flex items-center gap-3 px-4 py-3.5 rounded-2xl border text-base font-medium transition-all duration-200 ${
+                    selected
+                      ? 'border-teal-300 bg-teal-50 text-teal-800'
+                      : 'border-stone-200/70 bg-white text-slate-700 hover:border-stone-300'
+                  }`}
+                >
+                  <span
+                    className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-colors ${
+                      selected
+                        ? 'bg-teal-500'
+                        : 'bg-white border-2 border-stone-200'
+                    }`}
+                  >
+                    {selected && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
+                  </span>
+                  <span className="text-left">{option}</span>
+                </button>
+              );
+            })}
+
             {isCrisisYes && (
-              <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex gap-3 mb-4">
+              <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl flex gap-3 mt-4">
                 <AlertCircle className="w-5 h-5 text-rose-400 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-semibold text-rose-700">We hear you</p>
@@ -172,51 +214,12 @@ export function CheckInQuestionnaire() {
                 </div>
               </div>
             )}
-
-            {(['Yes', 'No'] as const).map((option) => {
-              const selected = currentAnswer === option;
-              return (
-                <button
-                  key={option}
-                  onClick={() => selectYesNo(option)}
-                  className={`w-full flex items-center justify-between px-5 py-4 rounded-2xl border-2 text-base font-medium transition-all duration-200 ${
-                    selected
-                      ? option === 'Yes'
-                        ? 'border-teal-500 bg-teal-500 text-white shadow-sm'
-                        : 'border-stone-300 bg-stone-100 text-slate-600 shadow-sm'
-                      : 'border-stone-200 bg-white text-slate-600 hover:border-stone-300 hover:bg-stone-50'
-                  }`}
-                >
-                  {option}
-                  {selected && <Check className="w-5 h-5" />}
-                </button>
-              );
-            })}
-
-            {isCrisisYes && !isLast && (
-              <Button
-                onClick={() => transition(step + 1)}
-                className="w-full h-13 rounded-2xl bg-teal-600 hover:bg-teal-700 text-base mt-2 shadow-sm"
-              >
-                Continue
-              </Button>
-            )}
-
-            {isLast && currentAnswer && (
-              <Button
-                onClick={handleSubmit}
-                disabled={submitting}
-                className="w-full h-13 rounded-2xl bg-teal-600 hover:bg-teal-700 text-base mt-2 shadow-sm"
-              >
-                {submitting ? 'Submitting…' : 'Submit Check-In'}
-              </Button>
-            )}
           </div>
         )}
 
         {/* Text answer */}
         {current.type === 'text' && (
-          <div className="space-y-4 mt-auto">
+          <div className="mt-8 space-y-4">
             <Textarea
               placeholder={current.optional ? 'Optional — leave blank if nothing to add' : 'Enter your response…'}
               value={currentAnswer ?? ''}
@@ -233,16 +236,26 @@ export function CheckInQuestionnaire() {
                 </p>
               </div>
             )}
-
-            <Button
-              onClick={handleSubmit}
-              disabled={submitting || (!current.optional && !currentAnswer?.trim())}
-              className="w-full h-13 rounded-2xl bg-teal-600 hover:bg-teal-700 text-base shadow-sm"
-            >
-              {submitting ? 'Submitting…' : 'Submit Check-In'}
-            </Button>
           </div>
         )}
+
+        {/* Spacer pushes Continue to the bottom */}
+        <div className="flex-1" />
+
+        {/* Continue / Submit — pinned to bottom */}
+        <Button
+          onClick={handleNext}
+          disabled={!canContinue || submitting}
+          className="w-full h-13 rounded-2xl bg-gradient-to-br from-teal-600 to-emerald-600 hover:from-teal-700 hover:to-emerald-700 text-base shadow-md disabled:opacity-50 disabled:from-stone-300 disabled:to-stone-300 mt-6"
+        >
+          {isLast ? (
+            submitting ? 'Submitting…' : 'Submit Check-In'
+          ) : (
+            <span className="flex items-center justify-center gap-2">
+              Continue <ArrowRight className="w-4 h-4" />
+            </span>
+          )}
+        </Button>
       </div>
     </div>
   );

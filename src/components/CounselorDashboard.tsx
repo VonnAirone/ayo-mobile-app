@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
 import { daysSince } from '../lib/dates';
 import { MOOD_SCORE, CONFIDENCE_SCORE } from '../lib/severity';
+import { CounselorNotifications } from './CounselorNotifications';
 
 type TabType = 'overview' | 'students' | 'questions';
 
@@ -163,13 +164,16 @@ export function CounselorDashboard() {
               <span className="text-xs text-teal-700 bg-teal-50 border border-teal-100/60 px-2 py-0.5 rounded-full font-medium">Counselor</span>
             </div>
           </div>
-          <button
-            onClick={handleLogout}
-            className="p-2 hover:bg-stone-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
-            aria-label="Log out"
-          >
-            <LogOut className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-1">
+            <CounselorNotifications variant="header" />
+            <button
+              onClick={handleLogout}
+              className="p-2 hover:bg-stone-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors"
+              aria-label="Log out"
+            >
+              <LogOut className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -203,7 +207,8 @@ export function CounselorDashboard() {
             ))}
           </nav>
 
-          <div className="px-3 py-5 border-t border-stone-100/60">
+          <div className="px-3 py-5 border-t border-stone-100/60 space-y-0.5">
+            <CounselorNotifications variant="sidebar" />
             <button
               onClick={handleLogout}
               className="w-full flex items-center space-x-3 px-4 py-2.5 rounded-xl text-sm font-medium text-slate-400 hover:bg-stone-50 hover:text-slate-600 transition-all duration-150"

@@ -4,6 +4,7 @@ import { Heart } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
+import { logActivity } from '../lib/activity';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -54,8 +55,12 @@ export function AuthPage() {
         toast.success('Account created successfully!');
         if (data.user) {
           await new Promise((res) => setTimeout(res, 500));
-          if (role === 'student') navigate('/student', { replace: true });
-          else navigate('/counselor', { replace: true });
+          if (role === 'student') {
+            await logActivity(data.user.id, 'signup', { name });
+            navigate('/student', { replace: true });
+          } else {
+            navigate('/counselor', { replace: true });
+          }
         }
       }
     } else {
@@ -69,8 +74,12 @@ export function AuthPage() {
           .select('role')
           .eq('id', data.user.id)
           .single();
-        if (profileData?.role === 'student') navigate('/student', { replace: true });
-        else if (profileData?.role === 'counselor') navigate('/counselor', { replace: true });
+        if (profileData?.role === 'student') {
+          await logActivity(data.user.id, 'login');
+          navigate('/student', { replace: true });
+        } else if (profileData?.role === 'counselor') {
+          navigate('/counselor', { replace: true });
+        }
       }
     }
 

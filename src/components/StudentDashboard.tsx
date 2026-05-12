@@ -4,6 +4,7 @@ import { Home, Calendar, BookOpen, User, LogOut, Heart, CheckCircle2 } from 'luc
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
 import { hasCheckedInToday } from '../lib/streak';
+import { logActivity } from '../lib/activity';
 import { StudentNotifications } from './StudentNotifications';
 
 type TabType = 'home' | 'checkin' | 'history' | 'resources';
@@ -91,6 +92,16 @@ export function StudentDashboard() {
     if (error) {
       console.error('Failed to save check-in:', error.message);
       return;
+    }
+
+    const concernCount = data.answers.filter((a) => a.answer === 'Yes').length;
+    await logActivity(user!.id, 'checkin', { concernCount });
+
+    const crisisFlags = data.answers
+      .filter((a) => a.crisis && a.answer === 'Yes')
+      .map((a) => a.question);
+    if (crisisFlags.length > 0) {
+      await logActivity(user!.id, 'crisis', { questions: crisisFlags });
     }
 
     await loadCheckIns();

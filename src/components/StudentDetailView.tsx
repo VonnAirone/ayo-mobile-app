@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Calendar, ChevronDown, ChevronUp, FileText, AlertTriangle, Clock, StickyNote } from 'lucide-react';
+import { ArrowLeft, Calendar, ChevronDown, ChevronUp, FileText, AlertTriangle, AlertCircle, Heart, Clock, StickyNote } from 'lucide-react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
@@ -141,7 +141,7 @@ export function StudentDetailView({ student, onBack }: StudentDetailViewProps) {
               isHigh
                 ? 'bg-rose-100 text-rose-600'
                 : isMedium
-                ? 'bg-amber-100 text-amber-600'
+                ? 'bg-pink-100 text-pink-600'
                 : 'bg-teal-100 text-teal-600'
             }`}
           >
@@ -156,10 +156,10 @@ export function StudentDetailView({ student, onBack }: StudentDetailViewProps) {
                   <span className="text-stone-300">·</span>
                   <span
                     className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                      isHigh ? 'bg-rose-100 text-rose-600' : 'bg-amber-100 text-amber-600'
+                      isHigh ? 'bg-rose-100 text-rose-600' : 'bg-pink-100 text-pink-600'
                     }`}
                   >
-                    {isHigh ? 'High Priority' : 'Medium Priority'}
+                    {isHigh ? 'High Priority' : 'Needs Comfort'}
                   </span>
                 </>
               )}
@@ -172,23 +172,23 @@ export function StudentDetailView({ student, onBack }: StudentDetailViewProps) {
       {student.alertLevel !== 'none' && (
         <Card
           className={`p-4 border rounded-2xl ${
-            isHigh ? 'bg-rose-50 border-rose-100' : 'bg-amber-50 border-amber-100'
+            isHigh ? 'bg-rose-50 border-rose-100' : 'bg-pink-50 border-pink-100'
           }`}
         >
           <div className="flex items-start gap-3">
-            <AlertTriangle
-              className={`w-5 h-5 flex-shrink-0 mt-0.5 ${
-                isHigh ? 'text-rose-400' : 'text-amber-400'
-              }`}
-            />
+            {isHigh ? (
+              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-rose-400" />
+            ) : (
+              <Heart className="w-5 h-5 flex-shrink-0 mt-0.5 text-pink-400" />
+            )}
             <div>
-              <p className={`text-sm font-semibold ${isHigh ? 'text-rose-700' : 'text-amber-700'}`}>
-                {isHigh ? 'Immediate follow-up recommended' : 'Check-in recommended'}
+              <p className={`text-sm font-semibold ${isHigh ? 'text-rose-700' : 'text-pink-700'}`}>
+                {isHigh ? 'Immediate follow-up recommended' : 'A kind check-in would help'}
               </p>
-              <p className={`text-xs mt-0.5 leading-relaxed ${isHigh ? 'text-rose-600' : 'text-amber-600'}`}>
+              <p className={`text-xs mt-0.5 leading-relaxed ${isHigh ? 'text-rose-600' : 'text-pink-600'}`}>
                 {isHigh
                   ? 'This student may be experiencing significant distress. Please reach out soon.'
-                  : 'This student may benefit from a counselor session. Schedule when possible.'}
+                  : 'This student may benefit from a comforting conversation. Reach out when possible.'}
               </p>
             </div>
           </div>

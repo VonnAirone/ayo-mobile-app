@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
-import { Search, Users, Pencil, Trash2, X } from 'lucide-react';
+import { Search, Users, Pencil, Trash2, X, AlertCircle, Heart, CheckCircle2, SlidersHorizontal, Check, ChevronDown } from 'lucide-react';
 import { Card } from './ui/card';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
@@ -23,6 +23,37 @@ function formatLastSeen(dateString: string): string {
 
 const ALERT_ORDER: Record<string, number> = { high: 0, medium: 1, none: 2 };
 
+type FilterKey = 'active-today' | 'high' | 'medium';
+
+const FILTER_META: Record<FilterKey, {
+  label: string;
+  icon: typeof AlertCircle;
+  iconClass: string;
+}> = {
+  'active-today': {
+    label: 'Active today',
+    icon: CheckCircle2,
+    iconClass: 'text-emerald-600',
+  },
+  high: {
+    label: 'High priority',
+    icon: AlertCircle,
+    iconClass: 'text-rose-500',
+  },
+  medium: {
+    label: 'Needs comfort',
+    icon: Heart,
+    iconClass: 'text-pink-500',
+  },
+};
+
+const FILTER_ORDER: FilterKey[] = ['active-today', 'high', 'medium'];
+
+function isToday(dateString: string): boolean {
+  if (!dateString) return false;
+  return Math.floor((Date.now() - new Date(dateString).getTime()) / (1000 * 60 * 60 * 24)) === 0;
+}
+
 export function StudentList() {
   const { students, refreshStudents } = useOutletContext<CounselorOutletContext>();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -36,9 +67,46 @@ export function StudentList() {
     const match = students.find((s) => s.id === id);
     if (match) {
       setSelectedStudent(match);
-      setSearchParams({}, { replace: true });
+      const next = new URLSearchParams(searchParams);
+      next.delete('student');
+      setSearchParams(next, { replace: true });
     }
   }, [students, searchParams, setSearchParams]);
+
+  const rawFilter = searchParams.get('filter');
+  const activeFilter: FilterKey | null =
+    rawFilter === 'active-today' || rawFilter === 'high' || rawFilter === 'medium'
+      ? rawFilter
+      : null;
+
+  const [filterOpen, setFilterOpen] = useState(false);
+
+  useEffect(() => {
+    if (!filterOpen) return;
+    function handlePointer(e: MouseEvent) {
+      const target = e.target as HTMLElement | null;
+      if (target && !target.closest('[data-filter-root]')) {
+        setFilterOpen(false);
+      }
+    }
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setFilterOpen(false);
+    }
+    document.addEventListener('mousedown', handlePointer);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handlePointer);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [filterOpen]);
+
+  function setFilter(key: FilterKey | null) {
+    const next = new URLSearchParams(searchParams);
+    if (key) next.set('filter', key);
+    else next.delete('filter');
+    setSearchParams(next, { replace: true });
+    setFilterOpen(false);
+  }
 
   // Edit state
   const [editTarget, setEditTarget] = useState<CounselorStudent | null>(null);
@@ -50,6 +118,12 @@ export function StudentList() {
   const [deleting, setDeleting] = useState(false);
 
   const filteredStudents = students
+    .filter((s) => {
+      if (activeFilter === 'active-today') return isToday(s.lastCheckIn);
+      if (activeFilter === 'high') return s.alertLevel === 'high';
+      if (activeFilter === 'medium') return s.alertLevel === 'medium';
+      return true;
+    })
     .filter((s) => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
     .sort((a, b) => ALERT_ORDER[a.alertLevel] - ALERT_ORDER[b.alertLevel]);
 
@@ -111,27 +185,109 @@ export function StudentList() {
   const listPanel = (
     <div className="flex flex-col h-full">
       {/* List header */}
-      <div className="px-4 pt-5 pb-3 border-b border-stone-100 flex-shrink-0">
+      <div className="px-6 lg:px-4 pt-5 pb-3 border-b border-stone-100 flex-shrink-0">
         <h2 className="text-sm font-semibold text-slate-700 hidden lg:block mb-3">Students</h2>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-          <Input
-            type="text"
-            placeholder="Search by name…"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 text-sm bg-stone-50 border-stone-200 focus:border-teal-300 rounded-xl h-9"
-          />
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1 min-w-0">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+            <Input
+              type="text"
+              placeholder="Search by name…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-9 text-sm bg-stone-50 border-stone-200 focus:border-teal-300 rounded-xl h-9"
+            />
+          </div>
+
+          <div className="relative flex-shrink-0" data-filter-root>
+            <button
+              type="button"
+              onClick={() => setFilterOpen((v) => !v)}
+              aria-haspopup="listbox"
+              aria-expanded={filterOpen}
+              aria-label="Filter students"
+              className={`flex items-center gap-1.5 h-9 px-3 rounded-xl border text-sm font-medium transition-colors ${
+                activeFilter
+                  ? 'bg-teal-50 border-teal-200 text-teal-700 hover:bg-teal-100/70'
+                  : 'bg-stone-50 border-stone-200 text-slate-600 hover:bg-stone-100'
+              }`}
+            >
+              {activeFilter ? (() => {
+                const { icon: FIcon, iconClass, label } = FILTER_META[activeFilter];
+                return (
+                  <>
+                    <FIcon className={`w-3.5 h-3.5 ${iconClass}`} />
+                    <span className="hidden sm:inline truncate max-w-[110px]">{label}</span>
+                  </>
+                );
+              })() : (
+                <>
+                  <SlidersHorizontal className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Filter</span>
+                </>
+              )}
+              <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {filterOpen && (
+              <div
+                role="listbox"
+                aria-label="Filter students"
+                className="absolute right-0 top-full mt-2 w-56 bg-white border border-stone-200 rounded-xl shadow-lg z-20 overflow-hidden"
+              >
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={activeFilter === null}
+                  onClick={() => setFilter(null)}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left hover:bg-stone-50 transition-colors ${
+                    activeFilter === null ? 'text-teal-700' : 'text-slate-600'
+                  }`}
+                >
+                  <Users className="w-4 h-4 text-slate-400" />
+                  <span className="flex-1">All students</span>
+                  {activeFilter === null && <Check className="w-4 h-4 text-teal-600" />}
+                </button>
+                <div className="h-px bg-stone-100" />
+                {FILTER_ORDER.map((key) => {
+                  const { label, icon: OptIcon, iconClass } = FILTER_META[key];
+                  const isActive = activeFilter === key;
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      role="option"
+                      aria-selected={isActive}
+                      onClick={() => setFilter(key)}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left hover:bg-stone-50 transition-colors ${
+                        isActive ? 'text-teal-700' : 'text-slate-600'
+                      }`}
+                    >
+                      <OptIcon className={`w-4 h-4 ${iconClass}`} />
+                      <span className="flex-1">{label}</span>
+                      {isActive && <Check className="w-4 h-4 text-teal-600" />}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
         {filteredStudents.length > 0 && (
           <p className="text-xs text-slate-400 mt-2">
             {filteredStudents.length} student{filteredStudents.length !== 1 ? 's' : ''}
+            {activeFilter && (
+              <span className="text-slate-300"> · </span>
+            )}
+            {activeFilter && (
+              <span className="text-slate-500">{FILTER_META[activeFilter].label.toLowerCase()}</span>
+            )}
           </p>
         )}
       </div>
 
       {/* Student list */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-1.5">
+      <div className="flex-1 overflow-y-auto px-6 lg:px-3 py-3 space-y-1.5">
         {filteredStudents.length === 0 ? (
           <div className="text-center py-10">
             <p className="text-slate-400 text-sm">No students found</p>
@@ -162,7 +318,7 @@ export function StudentList() {
                           : isHigh
                           ? 'bg-rose-100 text-rose-600'
                           : isMedium
-                          ? 'bg-amber-100 text-amber-600'
+                          ? 'bg-pink-100 text-pink-600'
                           : 'bg-stone-100 text-slate-500'
                       }`}
                     >
@@ -171,7 +327,7 @@ export function StudentList() {
                     {student.alertLevel !== 'none' && (
                       <span
                         className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white ${
-                          isHigh ? 'bg-rose-400' : 'bg-amber-400'
+                          isHigh ? 'bg-rose-400' : 'bg-pink-400'
                         }`}
                       />
                     )}
@@ -231,7 +387,7 @@ export function StudentList() {
     <>
       {/* Mobile layout */}
       <div className="lg:hidden">
-        <div className="px-4 pt-5 pb-3">
+        <div className="px-6 pt-6 pb-3">
           <h2 className="font-display text-3xl font-medium text-slate-800 tracking-tight">Students</h2>
           <p className="text-slate-400 text-sm mt-0.5">View and manage student check-ins</p>
         </div>
@@ -239,7 +395,7 @@ export function StudentList() {
       </div>
 
       {/* Desktop layout: master-detail */}
-      <div className="hidden lg:flex h-full min-h-screen">
+      <div className="hidden lg:flex h-full min-h-screen p-6 lg:p-8 max-w-6xl mx-auto">
         {/* Left panel: student list */}
         <div className="w-72 border-r border-stone-100 bg-white flex-shrink-0 flex flex-col">
           {listPanel}

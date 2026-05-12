@@ -31,6 +31,85 @@ const AFFIRMATIONS = [
   'Breathe. You’ve made it through every hard day so far.',
 ];
 
+const GENTLE_REMINDERS = [
+  'Take small breaks during long study sessions',
+  'Try a slow breath in and out when feeling stressed',
+  'Reach out to friends or counselors when you need support',
+  'Drink a glass of water — your brain will thank you',
+  'Step outside for a few minutes of fresh air',
+  'Stretch your shoulders and neck after sitting too long',
+  'Put your phone down for 10 minutes and just be present',
+  'Eat something nourishing, even if it’s small',
+  'Aim for 7–9 hours of sleep tonight if you can',
+  'Write down one thing you’re grateful for today',
+  'It’s okay to say no when your plate is full',
+  'Progress isn’t always visible — trust the process',
+  'Notice five things you can see around you right now',
+  'Unclench your jaw and relax your shoulders',
+  'A short walk can reset a heavy mood',
+  'Tidy one small corner of your space',
+  'Listen to a song that makes you feel safe',
+  'Message someone you care about, even just a quick hello',
+  'You don’t have to have everything figured out today',
+  'Comparison steals joy — focus on your own path',
+  'Try the 4-7-8 breath: in for 4, hold 7, out for 8',
+  'Forgive yourself for yesterday’s small mistakes',
+  'Open a window and let some daylight in',
+  'Wash your face — a small reset for tough moments',
+  'You are allowed to rest without earning it',
+  'Asking for help is a sign of strength, not weakness',
+  'Limit doomscrolling — your feed will be there later',
+  'Celebrate small wins, they add up faster than you think',
+  'Your worth is not measured by your productivity',
+  'Be patient with yourself while you’re learning',
+  'It’s okay to log off social media for the day',
+  'Try journaling for just 3 minutes — no rules',
+  'Talk to yourself the way you’d talk to a good friend',
+  'Even on hard days, you are still growing',
+  'Set one small goal for today — just one',
+  'Mistakes are part of becoming, not proof of failure',
+  'Notice your feet on the ground — you’re here, you’re safe',
+  'Eat breakfast, even if it’s just a piece of fruit',
+  'A messy day doesn’t mean a messy life',
+  'You don’t need to be productive to be worthy of rest',
+  'Try a screen-free moment before bed tonight',
+  'It’s okay to outgrow people, places, and routines',
+  'Lower the bar today if you need to — that’s wisdom',
+  'You are not behind. You are on your own timeline',
+  'Drink water before you reach for caffeine',
+  'Notice one kind thing you did today, however small',
+  'Saying “I don’t know” is a complete sentence',
+  'Healing isn’t linear, and that’s completely okay',
+  'You’ve survived 100% of your hardest days so far',
+  'Light a candle, open a window, or change the music — reset the room',
+  'Put your hand on your chest and take three slow breaths',
+  'Plan something small to look forward to this week',
+  'Compliment yourself for showing up today',
+  'You’re allowed to take up space in this world',
+];
+
+function pickDailyReminders(count: number): string[] {
+  const now = new Date();
+  const start = Date.UTC(now.getFullYear(), 0, 0);
+  const today = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  const dayOfYear = Math.floor((today - start) / 86_400_000);
+  const seed = dayOfYear + now.getFullYear() * 366;
+
+  const pool = GENTLE_REMINDERS.length;
+  const picks: string[] = [];
+  const used = new Set<number>();
+
+  for (let i = 0; i < count && used.size < pool; i++) {
+    let idx = (seed * 1103515245 + i * 12345 + i * i * 31) % pool;
+    if (idx < 0) idx += pool;
+    while (used.has(idx)) idx = (idx + 1) % pool;
+    used.add(idx);
+    picks.push(GENTLE_REMINDERS[idx]);
+  }
+
+  return picks;
+}
+
 function getGreeting(hour: number): { greeting: string; emoji: string } {
   if (hour < 5) return { greeting: 'Resting well', emoji: '\u{1F319}' };
   if (hour < 12) return { greeting: 'Good morning', emoji: '\u{1F33F}' };
@@ -158,6 +237,8 @@ export function StudentHome() {
     const idx = new Date().getDate() % AFFIRMATIONS.length;
     return AFFIRMATIONS[idx];
   }, []);
+
+  const dailyReminders = useMemo(() => pickDailyReminders(3), []);
 
   const last7 = useMemo(() => buildLast7Days(checkIns), [checkIns]);
   const dayLabels = useMemo(
@@ -351,11 +432,7 @@ export function StudentHome() {
       <Card className="p-5 bg-white/80 backdrop-blur-sm border border-stone-200/70 rounded-2xl">
         <h3 className="text-sm font-semibold text-slate-700 mb-3">Gentle reminders</h3>
         <ul className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {[
-            'Take small breaks during long study sessions',
-            'Try a slow breath in and out when feeling stressed',
-            'Reach out to friends or counselors when you need support',
-          ].map((tip, i) => (
+          {dailyReminders.map((tip, i) => (
             <li key={i} className="flex items-start space-x-2.5">
               <span className="w-1.5 h-1.5 bg-teal-400 rounded-full mt-1.5 flex-shrink-0" />
               <span className="text-sm text-slate-500 leading-relaxed">{tip}</span>

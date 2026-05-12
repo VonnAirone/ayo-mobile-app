@@ -1,5 +1,5 @@
 import { useNavigate, useOutletContext } from 'react-router-dom';
-import { AlertTriangle, TrendingUp, Users, Calendar, Clock, CheckCircle2, ChevronRight, Heart } from 'lucide-react';
+import { AlertTriangle, AlertCircle, TrendingUp, Users, Calendar, Clock, CheckCircle2, ChevronRight, Heart } from 'lucide-react';
 import { useAuth } from '../lib/AuthContext';
 import { Card } from './ui/card';
 import type { CounselorOutletContext } from './CounselorDashboard';
@@ -61,6 +61,8 @@ export function CounselorOverview() {
       bg: 'bg-teal-50',
       icon: Users,
       iconColor: 'text-teal-600',
+      to: '/counselor/students',
+      ariaLabel: 'View all students',
     },
     {
       label: 'Active Today',
@@ -69,22 +71,28 @@ export function CounselorOverview() {
       bg: 'bg-emerald-50',
       icon: CheckCircle2,
       iconColor: 'text-emerald-600',
+      to: '/counselor/students?filter=active-today',
+      ariaLabel: 'View students active today',
     },
     {
       label: 'High Priority',
       value: highPriority.length,
       color: 'text-rose-500',
       bg: 'bg-rose-50/80',
-      icon: Heart,
+      icon: AlertCircle,
       iconColor: 'text-rose-500',
+      to: '/counselor/students?filter=high',
+      ariaLabel: 'View high priority students',
     },
     {
-      label: 'Gentle Watch',
+      label: 'Needs Comfort',
       value: mediumPriority.length,
-      color: 'text-amber-600',
-      bg: 'bg-amber-50/80',
-      icon: AlertTriangle,
-      iconColor: 'text-amber-500',
+      color: 'text-pink-500',
+      bg: 'bg-pink-50/80',
+      icon: Heart,
+      iconColor: 'text-pink-500',
+      to: '/counselor/students?filter=medium',
+      ariaLabel: 'View students who need comfort',
     },
   ];
 
@@ -102,7 +110,7 @@ export function CounselorOverview() {
   })();
 
   return (
-    <div className="p-6 lg:p-8 max-w-6xl space-y-6">
+    <div className="p-6 lg:p-8 max-w-6xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between pt-2 gap-4">
         <div>
@@ -119,10 +127,20 @@ export function CounselorOverview() {
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {stats.map(({ label, value, color, bg, icon: Icon, iconColor }) => (
+        {stats.map(({ label, value, color, bg, icon: Icon, iconColor, to, ariaLabel }) => (
           <Card
             key={label}
-            className="flex flex-row items-center gap-3 p-3.5 border border-stone-200/70 rounded-2xl bg-white"
+            role="button"
+            tabIndex={0}
+            onClick={() => navigate(to)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                navigate(to);
+              }
+            }}
+            aria-label={ariaLabel}
+            className="flex flex-row items-center gap-3 p-3.5 border border-stone-200/70 rounded-2xl bg-white cursor-pointer transition-all duration-150 hover:border-stone-300 hover:shadow-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
           >
             <div className={`w-10 h-10 ${bg} rounded-xl flex items-center justify-center flex-shrink-0`}>
               <Icon className={`w-5 h-5 ${iconColor}`} />
@@ -177,7 +195,7 @@ export function CounselorOverview() {
                     className={`p-4 border rounded-2xl cursor-pointer transition-colors duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 ${
                       isHigh
                         ? 'border-rose-200/60 bg-rose-50/40 hover:bg-rose-50/70 hover:border-rose-300/70'
-                        : 'border-amber-200/60 bg-amber-50/30 hover:bg-amber-50/60 hover:border-amber-300/70'
+                        : 'border-pink-200/60 bg-pink-50/30 hover:bg-pink-50/60 hover:border-pink-300/70'
                     }`}
                   >
                     <div className="flex items-center gap-3">
@@ -185,7 +203,7 @@ export function CounselorOverview() {
                         className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-sm font-semibold ${
                           isHigh
                             ? 'bg-rose-100 text-rose-600'
-                            : 'bg-amber-100 text-amber-600'
+                            : 'bg-pink-100 text-pink-600'
                         }`}
                       >
                         {getInitials(student.name)}
@@ -197,10 +215,10 @@ export function CounselorOverview() {
                             className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                               isHigh
                                 ? 'bg-rose-100 text-rose-600'
-                                : 'bg-amber-100 text-amber-700'
+                                : 'bg-pink-100 text-pink-700'
                             }`}
                           >
-                            {isHigh ? 'High' : 'Gentle Watch'}
+                            {isHigh ? 'High' : 'Needs Comfort'}
                           </span>
                         </div>
                         <div className="flex items-center gap-3 mt-1 flex-wrap">
@@ -312,9 +330,9 @@ export function CounselorOverview() {
               )}
               {mediumPriority.length > 0 && (
                 <li className="flex items-start gap-2">
-                  <span className="w-1.5 h-1.5 bg-amber-400 rounded-full mt-1.5 flex-shrink-0" />
+                  <span className="w-1.5 h-1.5 bg-pink-400 rounded-full mt-1.5 flex-shrink-0" />
                   <span className="text-xs text-slate-600 leading-relaxed">
-                    Monitor {mediumPriority.length} medium-priority student
+                    Offer comfort to {mediumPriority.length} student
                     {mediumPriority.length !== 1 ? 's' : ''}
                   </span>
                 </li>
@@ -339,43 +357,6 @@ export function CounselorOverview() {
         </div>
       </div>
 
-      {/* Today's activity strip */}
-      {checkedInToday.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-slate-700">
-            Checked In Today{' '}
-            <span className="font-normal text-slate-400">{checkedInToday.length} student{checkedInToday.length !== 1 ? 's' : ''}</span>
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {checkedInToday.map((s) => (
-              <div
-                key={s.id}
-                className="flex items-center gap-2 bg-white border border-stone-200/70 rounded-full px-3 py-1.5"
-              >
-                <div
-                  className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold ${
-                    s.alertLevel === 'high'
-                      ? 'bg-rose-100 text-rose-600'
-                      : s.alertLevel === 'medium'
-                      ? 'bg-amber-100 text-amber-600'
-                      : 'bg-teal-100 text-teal-600'
-                  }`}
-                >
-                  {getInitials(s.name)}
-                </div>
-                <span className="text-xs text-slate-600 font-medium">{s.name.split(' ')[0]}</span>
-                {s.alertLevel !== 'none' && (
-                  <span
-                    className={`w-1.5 h-1.5 rounded-full ${
-                      s.alertLevel === 'high' ? 'bg-rose-400' : 'bg-amber-400'
-                    }`}
-                  />
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -3,6 +3,8 @@ import { useOutletContext } from 'react-router-dom';
 import { ChevronDown, Calendar, AlertCircle } from 'lucide-react';
 import { Card } from './ui/card';
 import { formatDate } from '../lib/dates';
+import { moodFromKey } from '../lib/mood';
+import { getAnswerSeverity } from '../lib/severity';
 import type { StudentOutletContext } from './StudentDashboard';
 
 function isToday(dateString: string) {
@@ -63,9 +65,12 @@ export function CheckInHistory() {
           {checkIns.map((checkIn) => {
             const isOpen = openIds.has(checkIn.id);
             const filledAnswers = checkIn.answers.filter((a) => a.answer.trim().length > 0);
-            const yesCount = filledAnswers.filter((a) => a.answer === 'Yes').length;
-            const noCount = filledAnswers.filter((a) => a.answer === 'No').length;
-            const hasConcern = yesCount > 0;
+            const mood = moodFromKey(checkIn.mood);
+            const percentage =
+              checkIn.score !== null && checkIn.maxScore && checkIn.maxScore > 0
+                ? Math.round((checkIn.score / checkIn.maxScore) * 100)
+                : null;
+            const hasConcern = checkIn.mood === 'struggling' || checkIn.mood === 'okay';
             const relativeLabel = getRelativeLabel(checkIn.date);
 
             return (
@@ -97,16 +102,17 @@ export function CheckInHistory() {
                       )}
                     </div>
                     <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-xs text-slate-400">
-                        {filledAnswers.length} response{filledAnswers.length !== 1 ? 's' : ''}
-                      </span>
-                      {yesCount > 0 && (
-                        <>
-                          <span className="text-stone-300 text-xs">·</span>
-                          <span className="text-xs text-slate-400">
-                            {yesCount} yes · {noCount} no
-                          </span>
-                        </>
+                      {mood ? (
+                        <span className="text-xs text-slate-500">
+                          {mood.emoji} {mood.label}
+                          {percentage !== null && (
+                            <span className="text-slate-400"> · {percentage}%</span>
+                          )}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-slate-400">
+                          {filledAnswers.length} response{filledAnswers.length !== 1 ? 's' : ''}
+                        </span>
                       )}
                     </div>
                   </div>
@@ -116,7 +122,7 @@ export function CheckInHistory() {
                     {hasConcern && (
                       <span className="hidden sm:flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
                         <AlertCircle className="w-3 h-3" />
-                        {yesCount} concern{yesCount !== 1 ? 's' : ''}
+                        {checkIn.mood === 'struggling' ? 'Needs support' : 'Needs attention'}
                       </span>
                     )}
                     <ChevronDown
@@ -132,25 +138,25 @@ export function CheckInHistory() {
                       <p className="text-slate-400 text-sm text-center py-2">No responses recorded.</p>
                     ) : (
                       filledAnswers.map((a) => {
-                        const isYes = a.answer === 'Yes';
-                        const isNo = a.answer === 'No';
+                        const isReflection = a.kind === 'reflection';
+                        const concern = getAnswerSeverity(a) === 'medium';
                         return (
                           <div
                             key={a.questionId}
-                            className={`flex items-start justify-between gap-4 text-sm pb-3 border-b border-stone-50 last:border-0 last:pb-0`}
+                            className="flex items-start justify-between gap-4 text-sm pb-3 border-b border-stone-50 last:border-0 last:pb-0"
                           >
                             <p className="text-slate-500 text-xs leading-snug flex-1">{a.question}</p>
-                            <span
-                              className={`text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0 ${
-                                isYes
-                                  ? 'bg-rose-50 text-rose-600'
-                                  : isNo
-                                  ? 'bg-stone-100 text-slate-500'
-                                  : 'bg-teal-50 text-teal-700'
-                              }`}
-                            >
-                              {a.answer}
-                            </span>
+                            {isReflection ? (
+                              <span className="text-xs text-slate-600 flex-1 leading-snug">{a.answer}</span>
+                            ) : (
+                              <span
+                                className={`text-xs font-medium px-2.5 py-1 rounded-full flex-shrink-0 ${
+                                  concern ? 'bg-amber-50 text-amber-700' : 'bg-teal-50 text-teal-700'
+                                }`}
+                              >
+                                {a.answer}
+                              </span>
+                            )}
                           </div>
                         );
                       })

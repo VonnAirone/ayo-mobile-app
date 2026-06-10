@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, AlertTriangle, X, Check, GripVertical } from 'lucide-react';
+import { Plus, Pencil, Trash2, X, Check, GripVertical } from 'lucide-react';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Textarea } from './ui/textarea';
@@ -7,12 +7,14 @@ import { Card } from './ui/card';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
 
+type QuestionType = 'yesno' | 'text' | 'scaling';
+
 interface Question {
   id: string;
   text: string;
   category: string;
   category_icon: string;
-  type: 'yesno' | 'text';
+  type: QuestionType;
   optional: boolean;
   crisis: boolean;
   order: number;
@@ -22,14 +24,26 @@ const EMPTY_FORM: Omit<Question, 'id' | 'order'> = {
   text: '',
   category: '',
   category_icon: '',
-  type: 'yesno',
+  type: 'scaling',
   optional: false,
   crisis: false,
 };
 
+const TYPE_OPTIONS: { value: QuestionType; label: string }[] = [
+  { value: 'scaling', label: 'Scale (1–5)' },
+  { value: 'yesno', label: 'Yes / No' },
+  { value: 'text', label: 'Free Text' },
+];
+
+const TYPE_LABELS: Record<QuestionType, string> = {
+  scaling: 'Scale (1–5)',
+  yesno: 'Yes / No',
+  text: 'Text',
+};
+
 const CATEGORY_SUGGESTIONS = [
-  'Home', 'Education & Work', 'Safety', 'Substance Use',
-  'Relationships', 'Reproductive Health', 'Support', 'Mental Health', 'Final Note',
+  'Emotional Well-being', 'School', 'Relationships', 'Home',
+  'Physical Well-being', 'Self-worth', 'Outlook', 'Support',
 ];
 
 type ModalMode = 'add' | 'edit';
@@ -186,14 +200,8 @@ export function QuestionsManager() {
                       {q.category_icon} {q.category}
                     </span>
                     <span className="text-xs bg-stone-100 text-slate-500 px-2 py-0.5 rounded-full">
-                      {q.type === 'yesno' ? 'Yes / No' : 'Text'}
+                      {TYPE_LABELS[q.type]}
                     </span>
-                    {q.crisis && (
-                      <span className="text-xs bg-rose-50 text-rose-600 px-2 py-0.5 rounded-full flex items-center gap-1">
-                        <AlertTriangle className="w-3 h-3" />
-                        Crisis
-                      </span>
-                    )}
                     {q.optional && (
                       <span className="text-xs bg-stone-100 text-slate-400 px-2 py-0.5 rounded-full">
                         Optional
@@ -295,31 +303,30 @@ export function QuestionsManager() {
               <div>
                 <label className="text-xs font-medium text-slate-600 mb-2 block">Answer Type</label>
                 <div className="flex gap-2">
-                  {(['yesno', 'text'] as const).map((t) => (
+                  {TYPE_OPTIONS.map((t) => (
                     <button
-                      key={t}
-                      onClick={() => setForm((f) => ({ ...f, type: t }))}
+                      key={t.value}
+                      onClick={() => setForm((f) => ({ ...f, type: t.value }))}
                       className={`flex-1 py-2.5 rounded-xl text-sm font-medium border-2 transition-colors ${
-                        form.type === t
+                        form.type === t.value
                           ? 'border-teal-500 bg-teal-50 text-teal-700'
                           : 'border-stone-200 text-slate-500 hover:border-stone-300'
                       }`}
                     >
-                      {t === 'yesno' ? 'Yes / No' : 'Free Text'}
+                      {t.label}
                     </button>
                   ))}
                 </div>
+                {form.type === 'scaling' && (
+                  <p className="text-xs text-slate-400 mt-2 leading-relaxed">
+                    Answered Always→Never (5→1 points). Word it positively so that a higher
+                    frequency means better well-being.
+                  </p>
+                )}
               </div>
 
               {/* Toggles */}
               <div className="flex gap-3">
-                <ToggleChip
-                  label="Crisis question"
-                  icon={<AlertTriangle className="w-3.5 h-3.5" />}
-                  checked={form.crisis}
-                  onChange={(v) => setForm((f) => ({ ...f, crisis: v }))}
-                  activeClass="bg-rose-50 border-rose-300 text-rose-600"
-                />
                 <ToggleChip
                   label="Optional"
                   checked={form.optional}

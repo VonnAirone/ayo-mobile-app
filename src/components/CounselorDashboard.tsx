@@ -1,19 +1,28 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, LogOut, Heart, ClipboardList } from 'lucide-react';
+import { LayoutDashboard, Users, LogOut, Heart, ClipboardList, MessageSquareHeart } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
 import { daysSince } from '../lib/dates';
-import { MOOD_SCORE, CONFIDENCE_SCORE } from '../lib/severity';
+import { SCALE_POINTS, type MoodKey } from '../lib/mood';
 import { CounselorNotifications } from './CounselorNotifications';
 
-type TabType = 'overview' | 'students' | 'questions';
+type TabType = 'overview' | 'students' | 'questions' | 'reflections';
 
 export interface CheckInAnswer {
   questionId: string;
   question: string;
   answer: string;
-  crisis?: boolean;
+  points?: number;
+  kind?: 'scale' | 'reflection';
+}
+
+export interface CounselorCheckIn {
+  date: string;
+  answers: CheckInAnswer[];
+  mood: MoodKey | null;
+  score: number | null;
+  maxScore: number | null;
 }
 
 export interface CounselorStudent {
@@ -23,10 +32,7 @@ export interface CounselorStudent {
   alertLevel: 'none' | 'medium' | 'high';
   recentConcerns: string[];
   concernCount: number;
-  checkIns: {
-    date: string;
-    answers: CheckInAnswer[];
-  }[];
+  checkIns: CounselorCheckIn[];
 }
 
 export interface CounselorOutletContext {
@@ -38,30 +44,23 @@ const tabToPath: Record<TabType, string> = {
   overview: '/counselor/overview',
   students: '/counselor/students',
   questions: '/counselor/questions',
+  reflections: '/counselor/reflections',
 };
 
 function getActiveTab(pathname: string): TabType {
   if (pathname.includes('/students')) return 'students';
+  if (pathname.includes('/reflections')) return 'reflections';
   if (pathname.includes('/questions')) return 'questions';
   return 'overview';
 }
 
 function deriveAlertLevel(
-  latestAnswers: CheckInAnswer[],
+  latest: CounselorCheckIn | undefined,
   inactiveDays: number
 ): CounselorStudent['alertLevel'] {
   if (inactiveDays > 7) return 'high';
-
-  const moodAnswer = latestAnswers.find((a) => a.questionId === 'mood')?.answer ?? '';
-  const confidenceAnswer = latestAnswers.find((a) => a.questionId === 'confidence')?.answer ?? '';
-
-  const score = Math.max(
-    MOOD_SCORE[moodAnswer] ?? 0,
-    CONFIDENCE_SCORE[confidenceAnswer] ?? 0
-  );
-
-  if (score === 2) return 'high';
-  if (score === 1 || inactiveDays > 3) return 'medium';
+  if (latest?.mood === 'struggling') return 'high';
+  if (latest?.mood === 'okay' || inactiveDays > 3) return 'medium';
   return 'none';
 }
 
@@ -91,7 +90,10 @@ export function CounselorDashboard() {
         check_ins (
           id,
           answers,
-          created_at
+          created_at,
+          score,
+          max_score,
+          mood
         )
       `)
       .eq('role', 'student')
@@ -103,29 +105,33 @@ export function CounselorDashboard() {
     }
 
     const mapped: CounselorStudent[] = (data ?? []).map((student) => {
-      const checkIns = (student.check_ins ?? []).map((c: {
-        answers: CheckInAnswer[]; created_at: string;
+      const checkIns: CounselorCheckIn[] = (student.check_ins ?? []).map((c: {
+        answers: CheckInAnswer[]; created_at: string; score: number | null;
+        max_score: number | null; mood: MoodKey | null;
       }) => ({
         date: c.created_at,
         answers: c.answers ?? [],
+        mood: c.mood ?? null,
+        score: c.score ?? null,
+        maxScore: c.max_score ?? null,
       }));
 
       const lastCheckIn = checkIns[0]?.date ?? '';
       const inactiveDays = lastCheckIn ? daysSince(lastCheckIn) : 999;
 
+      // Low-scoring statements (Rarely / Never) are the student's recent concerns.
       const latestAnswers = checkIns[0]?.answers ?? [];
-      const stressAnswer = latestAnswers.find((a) => a.questionId === 'stress')?.answer ?? '';
-      const recentConcerns = stressAnswer
-        ? stressAnswer.split(', ').filter((s) => s !== 'Nothing right now')
-        : [];
-
-      const concernCount = latestAnswers.filter((a) => a.answer === 'Yes').length;
+      const lowAnswers = latestAnswers.filter(
+        (a) => a.answer in SCALE_POINTS && SCALE_POINTS[a.answer] <= 2
+      );
+      const recentConcerns = lowAnswers.map((a) => a.question);
+      const concernCount = lowAnswers.length;
 
       return {
         id: student.id,
         name: student.name,
         lastCheckIn,
-        alertLevel: deriveAlertLevel(latestAnswers, inactiveDays),
+        alertLevel: deriveAlertLevel(checkIns[0], inactiveDays),
         recentConcerns,
         concernCount,
         checkIns,
@@ -144,6 +150,7 @@ export function CounselorDashboard() {
     { id: 'overview' as TabType, label: 'Overview', icon: LayoutDashboard },
     { id: 'students' as TabType, label: 'Students', icon: Users },
     { id: 'questions' as TabType, label: 'Questions', icon: ClipboardList },
+    { id: 'reflections' as TabType, label: 'Reflections', icon: MessageSquareHeart },
   ];
 
   const outletContext: CounselorOutletContext = { students, refreshStudents: loadStudents };

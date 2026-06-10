@@ -5,6 +5,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
 import { hasCheckedInToday } from '../lib/streak';
 import { logActivity } from '../lib/activity';
+import { moodFromPercentage, type MoodKey } from '../lib/mood';
 import { StudentNotifications } from './StudentNotifications';
 
 type TabType = 'home' | 'checkin' | 'history' | 'resources';
@@ -13,17 +14,25 @@ export interface CheckInAnswer {
   questionId: string;
   question: string;
   answer: string;
-  crisis?: boolean;
+  /** Points (1–5) for scaling answers; absent for reflection answers. */
+  points?: number;
+  kind?: 'scale' | 'reflection';
 }
 
 export interface CheckIn {
   id: string;
   date: string;
   answers: CheckInAnswer[];
+  mood: MoodKey | null;
+  score: number | null;
+  maxScore: number | null;
 }
 
 export interface CheckInData {
   answers: CheckInAnswer[];
+  mood: MoodKey;
+  score: number;
+  maxScore: number;
 }
 
 export interface StudentOutletContext {
@@ -65,7 +74,7 @@ export function StudentDashboard() {
   async function loadCheckIns() {
     const { data, error } = await supabase
       .from('check_ins')
-      .select('id, answers, created_at')
+      .select('id, answers, created_at, score, max_score, mood')
       .eq('student_id', user!.id)
       .order('created_at', { ascending: false });
 
@@ -79,6 +88,9 @@ export function StudentDashboard() {
         id: row.id,
         date: row.created_at,
         answers: row.answers ?? [],
+        mood: (row.mood as MoodKey | null) ?? null,
+        score: row.score ?? null,
+        maxScore: row.max_score ?? null,
       }))
     );
   }
@@ -87,6 +99,9 @@ export function StudentDashboard() {
     const { error } = await supabase.from('check_ins').insert({
       student_id: user!.id,
       answers: data.answers,
+      score: data.score,
+      max_score: data.maxScore,
+      mood: data.mood,
     });
 
     if (error) {
@@ -94,14 +109,12 @@ export function StudentDashboard() {
       return;
     }
 
-    const concernCount = data.answers.filter((a) => a.answer === 'Yes').length;
-    await logActivity(user!.id, 'checkin', { concernCount });
+    const percentage = data.maxScore > 0 ? Math.round((data.score / data.maxScore) * 100) : 0;
+    await logActivity(user!.id, 'checkin', { mood: data.mood, percentage });
 
-    const crisisFlags = data.answers
-      .filter((a) => a.crisis && a.answer === 'Yes')
-      .map((a) => a.question);
-    if (crisisFlags.length > 0) {
-      await logActivity(user!.id, 'crisis', { questions: crisisFlags });
+    // A "struggling" result surfaces to the counselor as a concern.
+    if (moodFromPercentage(percentage) === 'struggling') {
+      await logActivity(user!.id, 'concern', { mood: data.mood, percentage });
     }
 
     await loadCheckIns();

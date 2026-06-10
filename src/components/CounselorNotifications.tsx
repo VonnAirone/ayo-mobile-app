@@ -5,12 +5,14 @@ import {
   Bell,
   CheckCheck,
   ClipboardCheck,
+  HeartHandshake,
   LogIn,
   UserPlus,
   X,
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import type { ActivityType } from '../lib/activity';
+import { moodFromKey } from '../lib/mood';
 
 interface ActivityEvent {
   id: string;
@@ -92,6 +94,14 @@ function visualFor(type: ActivityType): EventVisual {
         ring: 'ring-rose-100',
         label: 'Crisis flag triggered',
       };
+    case 'concern':
+      return {
+        icon: HeartHandshake,
+        iconColor: 'text-amber-600',
+        bg: 'bg-amber-50',
+        ring: 'ring-amber-100',
+        label: 'May need support',
+      };
   }
 }
 
@@ -104,10 +114,18 @@ function describeEvent(event: ActivityEvent): string {
     case 'login':
       return `${name} signed in.`;
     case 'checkin': {
-      const concernCount = typeof meta.concernCount === 'number' ? meta.concernCount : 0;
-      return concernCount > 0
-        ? `${name} submitted a check-in (${concernCount} concern${concernCount === 1 ? '' : 's'}).`
+      const mood = moodFromKey(typeof meta.mood === 'string' ? meta.mood : null);
+      const pct = typeof meta.percentage === 'number' ? ` (${meta.percentage}%)` : '';
+      return mood
+        ? `${name} submitted a check-in — ${mood.label}${pct}.`
         : `${name} submitted a check-in.`;
+    }
+    case 'concern': {
+      const mood = moodFromKey(typeof meta.mood === 'string' ? meta.mood : null);
+      const pct = typeof meta.percentage === 'number' ? ` (${meta.percentage}%)` : '';
+      return mood
+        ? `${name}'s check-in suggests they may need support — ${mood.label}${pct}.`
+        : `${name}'s check-in suggests they may need support.`;
     }
     case 'crisis': {
       const questions = Array.isArray(meta.questions) ? meta.questions : [];

@@ -5,7 +5,8 @@ import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
-import { getAnswerSeverity, isCrisisAnswer } from '../lib/severity';
+import { getAnswerSeverity } from '../lib/severity';
+import { moodFromKey } from '../lib/mood';
 import type { CounselorStudent } from './CounselorDashboard';
 
 interface StudentDetailViewProps {
@@ -58,7 +59,10 @@ export function StudentDetailView({ student, onBack }: StudentDetailViewProps) {
   const isMedium = student.alertLevel === 'medium';
   const daysSinceLast = student.lastCheckIn ? daysSinceDate(student.lastCheckIn) : null;
 
-  const crisisFlags = student.checkIns[0]?.answers.filter(isCrisisAnswer).length ?? 0;
+  const latestCheckIn = student.checkIns[0];
+  const concernCount = (latestCheckIn?.answers ?? []).filter(
+    (a) => getAnswerSeverity(a) === 'medium'
+  ).length;
 
   async function loadFollowUps() {
     const { data, error } = await supabase
@@ -217,10 +221,10 @@ export function StudentDetailView({ student, onBack }: StudentDetailViewProps) {
           <div className="text-xs text-slate-400 mt-1">Last Seen</div>
         </Card>
         <Card className="p-4 border border-stone-200/70 rounded-2xl text-center flex flex-col justify-end">
-          <div className={`text-2xl font-semibold leading-none ${crisisFlags > 0 ? 'text-rose-500' : 'text-slate-300'}`}>
-            {crisisFlags}
+          <div className={`text-2xl font-semibold leading-none ${concernCount > 0 ? 'text-amber-500' : 'text-slate-300'}`}>
+            {concernCount}
           </div>
-          <div className="text-xs text-slate-400 mt-1">Crisis Flags</div>
+          <div className="text-xs text-slate-400 mt-1">Concerns</div>
         </Card>
       </div>
 
@@ -302,7 +306,11 @@ export function StudentDetailView({ student, onBack }: StudentDetailViewProps) {
           <div className="space-y-3">
             {student.checkIns.map((checkIn, idx) => {
               const isExpanded = expandedIdx === idx;
-              const moodAnswer = checkIn.answers.find((a) => a.questionId === 'mood');
+              const mood = moodFromKey(checkIn.mood);
+              const percentage =
+                checkIn.score !== null && checkIn.maxScore && checkIn.maxScore > 0
+                  ? Math.round((checkIn.score / checkIn.maxScore) * 100)
+                  : null;
               const filledAnswers = checkIn.answers.filter((a) => a.answer.trim().length > 0);
 
               return (
@@ -324,9 +332,10 @@ export function StudentDetailView({ student, onBack }: StudentDetailViewProps) {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {moodAnswer && (
+                      {mood && (
                         <span className="text-xs text-slate-500 bg-stone-100 px-2.5 py-1 rounded-full hidden sm:block">
-                          {moodAnswer.answer}
+                          {mood.emoji} {mood.label}
+                          {percentage !== null && ` · ${percentage}%`}
                         </span>
                       )}
                       {isExpanded ? (

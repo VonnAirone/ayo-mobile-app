@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 
-export type ActivityType = 'signup' | 'login' | 'checkin' | 'crisis';
+export type ActivityType = 'signup' | 'login' | 'checkin' | 'crisis' | 'concern';
 
 export async function logActivity(
   studentId: string,

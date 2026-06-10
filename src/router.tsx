@@ -9,6 +9,7 @@ import { CounselorDashboard } from './components/CounselorDashboard';
 import { CounselorOverview } from './components/CounselorOverview';
 import { StudentList } from './components/StudentList';
 import { QuestionsManager } from './components/QuestionsManager';
+import { ReflectionQuestionsManager } from './components/ReflectionQuestionsManager';
 
 export const router = createBrowserRouter([
   {
@@ -34,6 +35,7 @@ export const router = createBrowserRouter([
       { path: 'overview', element: <CounselorOverview /> },
       { path: 'students', element: <StudentList /> },
       { path: 'questions', element: <QuestionsManager /> },
+      { path: 'reflections', element: <ReflectionQuestionsManager /> },
     ],
   },
 ]);

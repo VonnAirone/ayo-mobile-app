@@ -6,7 +6,6 @@ import { Card } from './ui/card';
 import { useAuth } from '../lib/AuthContext';
 import { calculateStreak, hasCheckedInToday } from '../lib/streak';
 import { daysSince } from '../lib/dates';
-import { isCrisisAnswer, MOOD_SCORE } from '../lib/severity';
 import type { StudentOutletContext, CheckIn } from './StudentDashboard';
 
 type StatusKind = 'support' | 'counseling' | 'complete' | 'empty';
@@ -137,7 +136,7 @@ function getLatestStatus(checkIns: CheckIn[]): LatestStatus {
   const days = daysSince(latest.date);
   const when = days === 0 ? 'Today' : days === 1 ? 'Yesterday' : `${days} days ago`;
 
-  if (answers.some(isCrisisAnswer)) {
+  if (latest.mood === 'struggling') {
     return {
       kind: 'support',
       title: 'Support on the way',
@@ -149,15 +148,15 @@ function getLatestStatus(checkIns: CheckIn[]): LatestStatus {
     };
   }
 
-  if (answers.find((a) => a.questionId === 'counseling')?.answer === 'Yes') {
+  if (latest.mood === 'okay') {
     return {
       kind: 'counseling',
-      title: 'Counseling requested',
-      subtitle: `Checked in ${when.toLowerCase()}`,
+      title: 'Checked in',
+      subtitle: `A few things to keep an eye on · ${when.toLowerCase()}`,
       Icon: HandHeart,
-      iconColor: 'text-teal-500',
-      iconBg: 'bg-teal-50',
-      titleColor: 'text-teal-700',
+      iconColor: 'text-amber-500',
+      iconBg: 'bg-amber-50',
+      titleColor: 'text-amber-700',
     };
   }
 
@@ -192,13 +191,8 @@ function buildLast7Days(checkIns: CheckIn[]): MoodPoint[] {
       return { date: dayStr, hasEntry: false, level: 0 };
     }
 
-    const moodAnswer = entry.answers.find((a) => a.questionId === 'mood')?.answer ?? '';
-    const score = MOOD_SCORE[moodAnswer] ?? 0;
-    const hasCrisis = entry.answers.some(isCrisisAnswer);
-
-    let level: MoodPoint['level'] = 3;
-    if (hasCrisis || score === 2) level = 1;
-    else if (score === 1) level = 2;
+    const level: MoodPoint['level'] =
+      entry.mood === 'struggling' ? 1 : entry.mood === 'okay' ? 2 : 3;
     return { date: dayStr, hasEntry: true, level };
   });
 }

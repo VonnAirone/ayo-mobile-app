@@ -6,3 +6,46 @@
 @layer base {
   html, body, #root { min-height: 100vh; height: 100%; margin: 0; }
 }
+
+.privacy-screen {
+  align-items: center;
+  background: var(--background);
+  color: var(--foreground);
+  display: none;
+  inset: 0;
+  justify-content: center;
+  padding: 2rem;
+  position: fixed;
+  z-index: 2147483647;
+}
+
+.screen-protected .privacy-screen {
+  display: flex;
+}
+
+.privacy-screen__message {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  text-align: center;
+}
+
+.privacy-screen__message > :first-child {
+  font-size: 2rem;
+}
+
+.privacy-screen__message > :last-child {
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+}
+
+@media print {
+  #root > :not(.privacy-screen) {
+    display: none !important;
+  }
+
+  .privacy-screen {
+    display: flex !important;
+  }
+}

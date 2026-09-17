@@ -5,6 +5,7 @@ import { ChevronDown, Calendar, AlertCircle } from 'lucide-react';
 import { Card } from './ui/card';
 import { formatDate } from '../lib/dates';
 import { moodFromKey } from '../lib/mood';
+import { checkInPercentage, filterCheckIns } from '../lib/moodHistory';
 import { getAnswerSeverity } from '../lib/severity';
 import type { StudentOutletContext } from './StudentDashboard';
 
@@ -33,12 +34,9 @@ function getRelativeLabel(dateString: string) {
 
 export function CheckInHistory() {
   const { checkIns } = useOutletContext<StudentOutletContext>();
-  // First entry open by default
-  const [openIds, setOpenIds] = useState<Set<string>>(() => {
-    const s = new Set<string>();
-    if (checkIns[0]) s.add(checkIns[0].id);
-    return s;
-  });
+  const [days, setDays] = useState(30);
+  const visibleCheckIns = filterCheckIns(checkIns, days);
+  const [openIds, setOpenIds] = useState<Set<string>>(() => new Set());
 
   function toggle(id: string) {
     setOpenIds((prev) => {
@@ -56,23 +54,31 @@ export function CheckInHistory() {
         <p className="text-slate-400 text-sm mt-0.5">Your daily check-ins, moods, and reflections over time</p>
       </div>
 
-      <MoodTracking checkIns={checkIns} />
+      <label className="flex items-center gap-3 text-sm text-slate-600">
+        Show check-ins
+        <select value={days} onChange={(event) => setDays(Number(event.target.value))} className="bg-white border border-stone-200 rounded-xl p-2">
+          <option value={7}>Last 7 days</option>
+          <option value={30}>Last 30 days</option>
+          <option value={0}>All time</option>
+        </select>
+      </label>
 
-      {checkIns.length === 0 ? (
+      <MoodTracking checkIns={visibleCheckIns} />
+      <h3 className="text-sm font-semibold text-slate-700">Daily check-ins</h3>
+      <p className="text-xs text-slate-500">Open a check-in to revisit your responses and reflections.</p>
+
+      {visibleCheckIns.length === 0 ? (
         <Card className="p-14 text-center border border-stone-200/70 rounded-2xl">
           <div className="text-3xl mb-3">🌱</div>
-          <p className="text-slate-400 text-sm">No check-ins yet. Start your first one today!</p>
+          <p className="text-slate-400 text-sm">No check-ins in this period. Try a wider date range or begin a new check-in.</p>
         </Card>
       ) : (
         <div className="space-y-2.5">
-          {checkIns.map((checkIn) => {
+          {visibleCheckIns.map((checkIn) => {
             const isOpen = openIds.has(checkIn.id);
             const filledAnswers = checkIn.answers.filter((a) => a.answer.trim().length > 0);
             const mood = moodFromKey(checkIn.mood);
-            const percentage =
-              checkIn.score !== null && checkIn.maxScore && checkIn.maxScore > 0
-                ? Math.round((checkIn.score / checkIn.maxScore) * 100)
-                : null;
+            const percentage = checkInPercentage(checkIn);
             const hasConcern = checkIn.mood === 'struggling' || checkIn.mood === 'okay';
             const relativeLabel = getRelativeLabel(checkIn.date);
 
@@ -109,7 +115,7 @@ export function CheckInHistory() {
                         <span className="text-xs text-slate-500">
                           {mood.emoji} {mood.label}
                           {percentage !== null && (
-                            <span className="text-slate-400"> · {percentage}%</span>
+                            <span className="text-slate-400"> · {percentage}% well-being</span>
                           )}
                         </span>
                       ) : (

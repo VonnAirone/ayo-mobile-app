@@ -1,4 +1,3 @@
-import { MoodTracking } from './MoodTracking';
 import { useEffect, useMemo } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { Heart, TrendingUp, Calendar, Sparkles, Flame, CheckCircle2, HandHeart, LifeBuoy } from 'lucide-react';
@@ -215,7 +214,7 @@ function showCheckInReminder() {
 
 export function StudentHome() {
   const { checkIns } = useOutletContext<StudentOutletContext>();
-  const { user, profile } = useAuth();
+  const { profile } = useAuth();
   const navigate = useNavigate();
 
   const lastCheckIn = checkIns[0];
@@ -274,8 +273,6 @@ export function StudentHome() {
         </div>
       </div>
 
-      {user && <MoodTracking key={user.id} studentId={user.id} allowEntry />}
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Daily check-in card */}
         <Card className="relative overflow-hidden lg:col-span-2 p-6 bg-gradient-to-br from-teal-600 via-teal-500 to-emerald-400 text-white border-0 rounded-3xl">
@@ -304,6 +301,7 @@ export function StudentHome() {
                 : 'Start your first check-in. There are no wrong answers here.'}
             </p>
 
+            <div className="flex flex-wrap items-center gap-3">
             <Button
               onClick={() => navigate('/student/checkin')}
               className="bg-white text-teal-700 hover:bg-teal-50 px-6 rounded-2xl font-medium text-sm shadow-sm"
@@ -311,6 +309,13 @@ export function StudentHome() {
             >
               {checkedInToday ? 'Done for today ✓' : 'Begin Check-In'}
             </Button>
+            <Button
+              onClick={() => navigate('/student/history')}
+              className="bg-teal-700 text-white hover:bg-teal-800 border border-white/40 px-6 rounded-2xl font-medium text-sm shadow-sm"
+            >
+              View History
+            </Button>
+            </div>
           </div>
         </Card>
 

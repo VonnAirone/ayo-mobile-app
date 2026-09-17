@@ -229,7 +229,7 @@ export function StudentDetailView({ student, onBack }: StudentDetailViewProps) {
         </Card>
       </div>
 
-      <MoodTracking key={student.id} studentId={student.id} />
+      <MoodTracking checkIns={student.checkIns} />
 
       {/* Recent concerns */}
       {student.recentConcerns.length > 0 && (

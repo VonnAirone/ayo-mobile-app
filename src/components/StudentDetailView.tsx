@@ -1,3 +1,4 @@
+import { MoodTracking } from './MoodTracking';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Calendar, ChevronDown, ChevronUp, FileText, AlertTriangle, AlertCircle, Heart, Clock, StickyNote } from 'lucide-react';
 import { Card } from './ui/card';
@@ -227,6 +228,8 @@ export function StudentDetailView({ student, onBack }: StudentDetailViewProps) {
           <div className="text-xs text-slate-400 mt-1">Concerns</div>
         </Card>
       </div>
+
+      <MoodTracking key={student.id} studentId={student.id} />
 
       {/* Recent concerns */}
       {student.recentConcerns.length > 0 && (

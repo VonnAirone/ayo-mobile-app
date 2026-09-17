@@ -1,3 +1,4 @@
+import { MoodTracking } from './MoodTracking';
 import { useEffect, useMemo } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import { Heart, TrendingUp, Calendar, Sparkles, Flame, CheckCircle2, HandHeart, LifeBuoy } from 'lucide-react';
@@ -214,7 +215,7 @@ function showCheckInReminder() {
 
 export function StudentHome() {
   const { checkIns } = useOutletContext<StudentOutletContext>();
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
   const navigate = useNavigate();
 
   const lastCheckIn = checkIns[0];
@@ -272,6 +273,8 @@ export function StudentHome() {
           </div>
         </div>
       </div>
+
+      {user && <MoodTracking key={user.id} studentId={user.id} allowEntry />}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Daily check-in card */}

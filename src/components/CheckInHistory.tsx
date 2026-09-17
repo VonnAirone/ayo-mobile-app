@@ -1,3 +1,5 @@
+import { useAuth } from '../lib/AuthContext';
+import { MoodTracking } from './MoodTracking';
 import { useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import { ChevronDown, Calendar, AlertCircle } from 'lucide-react';
@@ -31,6 +33,7 @@ function getRelativeLabel(dateString: string) {
 }
 
 export function CheckInHistory() {
+  const { user } = useAuth();
   const { checkIns } = useOutletContext<StudentOutletContext>();
   // First entry open by default
   const [openIds, setOpenIds] = useState<Set<string>>(() => {
@@ -54,6 +57,8 @@ export function CheckInHistory() {
         <h2 className="font-display text-3xl font-medium text-slate-800 tracking-tight">Check-In History</h2>
         <p className="text-slate-400 text-sm mt-0.5">Your past well-being check-ins</p>
       </div>
+
+      {user && <MoodTracking key={user.id} studentId={user.id} />}
 
       {checkIns.length === 0 ? (
         <Card className="p-14 text-center border border-stone-200/70 rounded-2xl">

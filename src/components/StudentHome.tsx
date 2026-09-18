@@ -139,8 +139,8 @@ function getLatestStatus(checkIns: CheckIn[]): LatestStatus {
   if (latest.mood === 'struggling') {
     return {
       kind: 'support',
-      title: 'Support on the way',
-      subtitle: 'Your counselor has been notified',
+      title: 'Support is available',
+      subtitle: 'Message a counselor when you’re ready',
       Icon: LifeBuoy,
       iconColor: 'text-rose-400',
       iconBg: 'bg-rose-50',

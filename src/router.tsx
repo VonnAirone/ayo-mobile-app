@@ -1,3 +1,5 @@
+import { Messages } from './components/Messages';
+import { CounselorReports } from './components/CounselorReports';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AuthPage } from './components/AuthPage';
 import { StudentDashboard } from './components/StudentDashboard';
@@ -25,6 +27,7 @@ export const router = createBrowserRouter([
       { path: 'checkin', element: <CheckInQuestionnaire /> },
       { path: 'history', element: <CheckInHistory /> },
       { path: 'resources', element: <Resources /> },
+      { path: 'messages', element: <Messages /> },
     ],
   },
   {
@@ -33,6 +36,8 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="overview" replace /> },
       { path: 'overview', element: <CounselorOverview /> },
+      { path: 'reports', element: <CounselorReports /> },
+      { path: 'messages', element: <Messages /> },
       { path: 'students', element: <StudentList /> },
       { path: 'questions', element: <QuestionsManager /> },
       { path: 'reflections', element: <ReflectionQuestionsManager /> },

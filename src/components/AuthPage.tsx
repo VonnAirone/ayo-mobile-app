@@ -15,11 +15,10 @@ export function AuthPage() {
   const { profile, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [mode, setMode] = useState<Mode>('login');
-  const [role, setRole] = useState<'student' | 'counselor'>('student');
+  const role = 'student';
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [inviteCode, setInviteCode] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -34,15 +33,6 @@ export function AuthPage() {
     setError('');
     setLoading(true);
 
-    if (mode === 'signup' && role === 'counselor') {
-      const expected = import.meta.env.VITE_COUNSELOR_INVITE_CODE as string | undefined;
-      if (!expected || inviteCode.trim() !== expected.trim()) {
-        setError('Invalid invite code. Please contact your administrator.');
-        setLoading(false);
-        return;
-      }
-    }
-
     if (mode === 'signup') {
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -55,12 +45,8 @@ export function AuthPage() {
         toast.success('Account created successfully!');
         if (data.user) {
           await new Promise((res) => setTimeout(res, 500));
-          if (role === 'student') {
-            await logActivity(data.user.id, 'signup', { name });
-            navigate('/student', { replace: true });
-          } else {
-            navigate('/counselor', { replace: true });
-          }
+          await logActivity(data.user.id, 'signup', { name });
+          navigate('/student', { replace: true });
         }
       }
     } else {
@@ -135,47 +121,7 @@ export function AuthPage() {
                 />
               </div>
 
-              <div>
-                <Label className="text-xs font-medium text-slate-600">I am a…</Label>
-                <div className="flex gap-2 mt-1.5">
-                  {(['student', 'counselor'] as const).map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => { setRole(r); setInviteCode(''); setError(''); }}
-                      className={`flex-1 py-2.5 rounded-xl border-2 text-sm font-medium transition-all duration-150 capitalize ${
-                        role === r
-                          ? 'border-teal-500 bg-teal-50 text-teal-700'
-                          : 'border-stone-200 text-slate-500 hover:border-stone-300 hover:bg-stone-50'
-                      }`}
-                    >
-                      {r}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {role === 'counselor' && (
-                <div className="bg-amber-50 border border-amber-100 rounded-xl p-3.5 space-y-2.5">
-                  <p className="text-xs text-amber-700 leading-relaxed">
-                    Counselor accounts require an invite code issued by your administrator.
-                  </p>
-                  <div>
-                    <Label htmlFor="inviteCode" className="text-xs font-medium text-slate-600">
-                      Invite Code
-                    </Label>
-                    <Input
-                      id="inviteCode"
-                      type="text"
-                      value={inviteCode}
-                      onChange={(e) => setInviteCode(e.target.value)}
-                      placeholder="Enter your invite code"
-                      required
-                      className="mt-1.5 rounded-xl border-amber-200 focus:border-amber-400 h-10 text-sm bg-white"
-                    />
-                  </div>
-                </div>
-              )}
+              <p className="text-xs text-slate-500">New accounts are student accounts. Counselor access is assigned by your school administrator.</p>
             </>
           )}
 

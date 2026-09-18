@@ -1,3 +1,4 @@
+import { PriorityReviewPanel } from './PriorityReviewPanel';
 import { MoodTracking } from './MoodTracking';
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Calendar, ChevronDown, ChevronUp, FileText, AlertTriangle, AlertCircle, Heart, Clock, StickyNote } from 'lucide-react';
@@ -173,6 +174,9 @@ export function StudentDetailView({ student, onBack }: StudentDetailViewProps) {
         </div>
       </div>
 
+      <p className="text-xs text-slate-500">{student.prioritySource}. Priority guides follow-up and is not a diagnosis.</p>
+      <PriorityReviewPanel key={student.id} studentId={student.id} latestCheckIn={student.lastCheckIn} />
+
       {/* Alert banner */}
       {student.alertLevel !== 'none' && (
         <Card
@@ -188,11 +192,11 @@ export function StudentDetailView({ student, onBack }: StudentDetailViewProps) {
             )}
             <div>
               <p className={`text-sm font-semibold ${isHigh ? 'text-rose-700' : 'text-pink-700'}`}>
-                {isHigh ? 'Immediate follow-up recommended' : 'A kind check-in would help'}
+                {isHigh ? 'High-priority follow-up indicator' : 'Follow-up indicator'}
               </p>
               <p className={`text-xs mt-0.5 leading-relaxed ${isHigh ? 'text-rose-600' : 'text-pink-600'}`}>
                 {isHigh
-                  ? 'This student may be experiencing significant distress. Please reach out soon.'
+                  ? 'Review the responses and counselor decision above to plan appropriate follow-up.'
                   : 'This student may benefit from a comforting conversation. Reach out when possible.'}
               </p>
             </div>

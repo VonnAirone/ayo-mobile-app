@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { Users, BookOpen, Heart, ExternalLink } from 'lucide-react';
 import { Card } from './ui/card';
 
@@ -69,6 +70,7 @@ const ARTICLES: Article[] = [
 export function Resources() {
   return (
     <div className="p-6 lg:p-8 max-w-3xl space-y-7">
+      <Link to="/student/messages" className="block rounded-2xl bg-teal-600 text-white p-5 font-medium">Consult a counselor · Open Messages</Link>
       <div className="pt-2 flex items-center gap-4">
         <div className="w-12 h-12 bg-gradient-to-br from-teal-100 to-emerald-100 rounded-2xl flex items-center justify-center flex-shrink-0">
           <Heart className="w-6 h-6 text-teal-600" fill="currentColor" />

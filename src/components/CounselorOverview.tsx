@@ -111,6 +111,7 @@ export function CounselorOverview() {
 
   return (
     <div className="p-6 lg:p-8 max-w-6xl mx-auto space-y-6">
+      <p className="text-xs text-slate-500">Priority reflects the latest counselor review when current; otherwise it is a provisional indicator awaiting review. No automatic diagnoses are made.</p>
       {/* Header */}
       <div className="flex items-start justify-between pt-2 gap-4">
         <div>

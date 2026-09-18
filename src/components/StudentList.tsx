@@ -73,6 +73,10 @@ export function StudentList() {
     }
   }, [students, searchParams, setSearchParams]);
 
+  useEffect(() => {
+    setSelectedStudent((current) => current ? students.find((student) => student.id === current.id) ?? null : null);
+  }, [students]);
+
   const rawFilter = searchParams.get('filter');
   const activeFilter: FilterKey | null =
     rawFilter === 'active-today' || rawFilter === 'high' || rawFilter === 'medium'
@@ -324,6 +328,7 @@ export function StudentList() {
                     >
                       {getInitials(student.name)}
                     </div>
+                    <span className="text-xs text-slate-500">{student.prioritySource}</span>
                     {student.alertLevel !== 'none' && (
                       <span
                         className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white ${

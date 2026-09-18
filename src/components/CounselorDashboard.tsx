@@ -1,13 +1,15 @@
+import { allPages } from '../lib/records';
+import { reviewIsCurrent, type PriorityReview } from '../lib/priority';
 import { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, LogOut, Heart, ClipboardList, MessageSquareHeart } from 'lucide-react';
+import { LayoutDashboard, Users, LogOut, Heart, ClipboardList, MessageSquareHeart, FileBarChart, MessageCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
 import { daysSince } from '../lib/dates';
 import { SCALE_POINTS, type MoodKey } from '../lib/mood';
 import { CounselorNotifications } from './CounselorNotifications';
 
-type TabType = 'overview' | 'students' | 'questions' | 'reflections';
+type TabType = 'overview' | 'students' | 'questions' | 'reflections' | 'messages' | 'reports';
 
 export interface CheckInAnswer {
   questionId: string;
@@ -33,6 +35,7 @@ export interface CounselorStudent {
   recentConcerns: string[];
   concernCount: number;
   checkIns: CounselorCheckIn[];
+  prioritySource: string;
 }
 
 export interface CounselorOutletContext {
@@ -41,6 +44,8 @@ export interface CounselorOutletContext {
 }
 
 const tabToPath: Record<TabType, string> = {
+  reports: '/counselor/reports',
+  messages: '/counselor/messages',
   overview: '/counselor/overview',
   students: '/counselor/students',
   questions: '/counselor/questions',
@@ -48,6 +53,8 @@ const tabToPath: Record<TabType, string> = {
 };
 
 function getActiveTab(pathname: string): TabType {
+  if (pathname.includes('/messages')) return 'messages';
+  if (pathname.includes('/reports')) return 'reports';
   if (pathname.includes('/students')) return 'students';
   if (pathname.includes('/reflections')) return 'reflections';
   if (pathname.includes('/questions')) return 'questions';
@@ -104,6 +111,15 @@ export function CounselorDashboard() {
       return;
     }
 
+    let reviews: PriorityReview[] = [];
+    let reviewsUnavailable = false;
+    try {
+      reviews = await allPages<PriorityReview>((from, to) => supabase.from('priority_reviews').select('*').order('created_at', { ascending: false }).order('id', { ascending: false }).range(from, to));
+    } catch {
+      // Existing provisional indicators remain visible if review storage is unavailable.
+      reviewsUnavailable = true;
+      console.error('Could not load counselor reviews. Showing provisional indicators.');
+    }
     const mapped: CounselorStudent[] = (data ?? []).map((student) => {
       const checkIns: CounselorCheckIn[] = (student.check_ins ?? []).map((c: {
         answers: CheckInAnswer[]; created_at: string; score: number | null;
@@ -127,11 +143,15 @@ export function CounselorDashboard() {
       const recentConcerns = lowAnswers.map((a) => a.question);
       const concernCount = lowAnswers.length;
 
+      const review = reviews.find((item) => item.student_id === student.id);
+      const currentReview = reviewIsCurrent(review, lastCheckIn);
+      const reviewedLevel = review?.priority === 'urgent' ? 'high' : review?.priority === 'follow_up' ? 'medium' : 'none';
       return {
         id: student.id,
         name: student.name,
         lastCheckIn,
-        alertLevel: deriveAlertLevel(checkIns[0], inactiveDays),
+        alertLevel: currentReview ? reviewedLevel : deriveAlertLevel(checkIns[0], inactiveDays),
+        prioritySource: reviewsUnavailable ? 'Reviews unavailable · provisional indicator' : currentReview ? 'Counselor reviewed' : review ? 'New check-in needs review' : 'Provisional · needs counselor review',
         recentConcerns,
         concernCount,
         checkIns,
@@ -149,13 +169,15 @@ export function CounselorDashboard() {
   const navItems = [
     { id: 'overview' as TabType, label: 'Overview', icon: LayoutDashboard },
     { id: 'students' as TabType, label: 'Students', icon: Users },
+    { id: 'reports' as TabType, label: 'Reports', icon: FileBarChart },
+    { id: 'messages' as TabType, label: 'Messages', icon: MessageCircle },
     { id: 'questions' as TabType, label: 'Questions', icon: ClipboardList },
     { id: 'reflections' as TabType, label: 'Reflections', icon: MessageSquareHeart },
   ];
 
   const outletContext: CounselorOutletContext = { students, refreshStudents: loadStudents };
 
-  if (authLoading) return null;
+  if (authLoading || !user || profile?.role !== 'counselor') return null;
 
   return (
     <div className="min-h-screen bg-stone-50">
@@ -235,7 +257,7 @@ export function CounselorDashboard() {
       {/* Mobile bottom nav — stuck to bottom */}
       <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-10">
         <div className="bg-white/95 backdrop-blur-lg border-t border-stone-200/80 px-2 py-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
-          <div className="flex justify-around items-center">
+          <div className="flex overflow-x-auto items-center">
             {navItems.map(({ id, label, icon: Icon }) => {
               const isActive = activeTab === id;
               return (
@@ -243,7 +265,7 @@ export function CounselorDashboard() {
                   key={id}
                   onClick={() => navigate(tabToPath[id])}
                   aria-label={label}
-                  className={`relative flex-1 flex flex-col items-center py-2 px-1 rounded-2xl transition-all duration-200 ${
+                  className={`relative flex-1 min-w-[64px] flex flex-col items-center py-2 px-1 rounded-2xl transition-all duration-200 ${
                     isActive
                       ? 'text-teal-700 bg-teal-50'
                       : 'text-slate-400 hover:text-slate-600'

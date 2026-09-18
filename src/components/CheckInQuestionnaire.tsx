@@ -212,6 +212,8 @@ export function CheckInQuestionnaire() {
             </div>
           </div>
 
+          <p className="text-xs text-slate-500 text-center mt-4">This is an initial questionnaire result, not a diagnosis. A counselor can review your responses and discuss support with you.</p>
+
           {/* Optional reflection questions */}
           {reflections.length > 0 && (
             <div className="mt-8 space-y-5">

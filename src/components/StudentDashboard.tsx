@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
-import { Home, Calendar, BookOpen, User, LogOut, Heart, CheckCircle2 } from 'lucide-react';
+import { Home, Calendar, BookOpen, User, LogOut, Heart, CheckCircle2, MessageCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/AuthContext';
 import { hasCheckedInToday } from '../lib/streak';
@@ -8,7 +8,7 @@ import { logActivity } from '../lib/activity';
 import { moodFromPercentage, type MoodKey } from '../lib/mood';
 import { StudentNotifications } from './StudentNotifications';
 
-type TabType = 'home' | 'checkin' | 'history' | 'resources';
+type TabType = 'home' | 'checkin' | 'history' | 'resources' | 'messages';
 
 export interface CheckInAnswer {
   questionId: string;
@@ -41,6 +41,7 @@ export interface StudentOutletContext {
 }
 
 const tabToPath: Record<TabType, string> = {
+  messages: '/student/messages',
   home: '/student/home',
   checkin: '/student/checkin',
   history: '/student/history',
@@ -48,6 +49,7 @@ const tabToPath: Record<TabType, string> = {
 };
 
 function getActiveTab(pathname: string): TabType {
+  if (pathname.includes('/messages')) return 'messages';
   if (pathname.includes('/checkin')) return 'checkin';
   if (pathname.includes('/history')) return 'history';
   if (pathname.includes('/resources')) return 'resources';
@@ -132,6 +134,7 @@ export function StudentDashboard() {
     { id: 'home' as TabType, label: 'Home', icon: Home },
     { id: 'checkin' as TabType, label: 'Check-In', icon: checkedInToday ? CheckCircle2 : Calendar, disabled: checkedInToday },
     { id: 'history' as TabType, label: 'History', icon: User },
+    { id: 'messages' as TabType, label: 'Messages', icon: MessageCircle },
     { id: 'resources' as TabType, label: 'Support', icon: BookOpen },
   ];
 
@@ -140,7 +143,7 @@ export function StudentDashboard() {
     handleCheckInSubmit,
   };
 
-  if (authLoading) return null;
+  if (authLoading || !user || profile?.role !== 'student') return null;
 
   return (
     <div className="min-h-screen bg-stone-50">

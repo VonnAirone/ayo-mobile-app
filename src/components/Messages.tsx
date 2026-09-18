@@ -1,3 +1,4 @@
+import { ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react';
 import { messageId } from '../lib/messages';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -7,6 +8,10 @@ import { allPages } from '../lib/records';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
 import { toast } from 'sonner';
+
+function initials(name: string) {
+  return name.trim().split(/\s+/).filter(Boolean).slice(0, 2).map((part) => Array.from(part)[0]).join('').toUpperCase() || '?';
+}
 
 interface Contact { id: string; name: string; accepting_requests: boolean }
 interface Conversation { id: string; student_id: string; counselor_id: string; created_at: string }
@@ -28,6 +33,7 @@ function MessagingInbox({ userId, counselor }: { userId: string; counselor: bool
   const [loading, setLoading] = useState(true);
   const [revision, setRevision] = useState(0);
   const [busy, setBusy] = useState(false);
+  const contactStripRef = useRef<HTMLDivElement>(null);
   const lock = useRef(false);
 
   useEffect(() => {
@@ -84,23 +90,62 @@ function MessagingInbox({ userId, counselor }: { userId: string; counselor: bool
   const selected = conversations.find((item) => item.id === active);
   const contactName = (conversation: Conversation) => contacts.find((item) => item.id === (counselor ? conversation.student_id : conversation.counselor_id))?.name ?? (counselor ? 'Student' : 'Counselor');
 
-  return <div className="p-5 lg:p-8 max-w-5xl space-y-5">
+  return <div className="p-5 lg:p-8 w-full min-w-0 max-w-5xl space-y-5">
     <h2 className="text-3xl font-medium text-slate-800">Messages</h2>
     <p className="text-sm text-slate-500">Private conversations between a student and their selected counselor. New messages refresh every 10 seconds while this screen is open. Replies may take time.</p>
     {!counselor && <p className="text-sm text-slate-600">For immediate help, contact your school guidance office or use the <Link className="text-teal-700 underline" to="/student/resources">Support page</Link>.</p>}
     {counselor && <Card className="p-4 flex flex-wrap items-center justify-between gap-3"><div><p className="font-medium text-sm">{accepting ? 'Accepting new requests' : 'Not accepting new requests'}</p><p className="text-xs text-slate-500">Existing conversations remain open. This is not an online status.</p></div><Button disabled={busy || loading || error} onClick={toggleAvailability}>{accepting ? 'Pause new requests' : 'Accept new requests'}</Button></Card>}
     {loading ? <p role="status">Loading inbox…</p> : error ? <p role="alert">Could not refresh your inbox. <button className="underline" onClick={() => setRevision((value) => value + 1)}>Retry</button></p> : null}
-    <div className="grid md:grid-cols-[240px_1fr] gap-4">
-      <div className="space-y-3">
-        <h3 className="font-semibold text-sm">Conversations</h3>
-        {!loading && !error && !conversations.length && <p className="text-sm text-slate-500">No conversations yet.{counselor ? ' Accept requests so students can contact you.' : ''}</p>}
-        {conversations.map((conversation) => <button key={conversation.id} onClick={() => setActive(conversation.id)} aria-pressed={active === conversation.id} className={`w-full text-left p-3 rounded-xl border text-sm ${active === conversation.id ? 'bg-teal-50 border-teal-500' : 'bg-white border-stone-200'}`}>
-          {contactName(conversation)}{unread[conversation.id] > 0 && <span className="ml-2 text-teal-700 font-semibold">{unread[conversation.id]} unread</span>}
+    {!loading && !error && (
+      <section aria-label={counselor ? 'Student contacts' : 'Counselor contacts'} className="min-w-0 rounded-2xl border border-stone-200/70 bg-white p-4">
+        <div className="flex items-center justify-between gap-3 mb-2">
+          <h3 className="text-sm font-semibold text-slate-800">{counselor ? 'Your students' : 'Your counselors'}</h3>
+          {contacts.length > 0 && <div className="flex gap-1">
+            <button type="button" aria-label="Scroll contacts left" onClick={() => contactStripRef.current?.scrollBy({ left: -240, behavior: 'smooth' })} className="rounded-full p-1.5 text-slate-500 hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-teal-600"><ChevronLeft className="h-4 w-4" /></button>
+            <button type="button" aria-label="Scroll contacts right" onClick={() => contactStripRef.current?.scrollBy({ left: 240, behavior: 'smooth' })} className="rounded-full p-1.5 text-slate-500 hover:bg-stone-100 focus-visible:outline-2 focus-visible:outline-teal-600"><ChevronRight className="h-4 w-4" /></button>
+          </div>}
+        </div>
+        {!counselor && <p className="text-xs text-slate-500 mb-3">Tap a counselor to chat. Green dots mean accepting requests, not online.</p>}
+        <div ref={contactStripRef} role="group" aria-label="Scrollable contacts" className="flex gap-3 overflow-x-auto overscroll-x-contain snap-x snap-proximity scrollbar-none py-2 px-1">
+          {contacts.map((contact) => {
+            const conversation = conversations.find((item) => (counselor ? item.student_id : item.counselor_id) === contact.id);
+            const isActive = !!conversation && active === conversation.id;
+            const unreadCount = conversation ? unread[conversation.id] ?? 0 : 0;
+            const disabled = !conversation && (counselor || !contact.accepting_requests || busy);
+            const status = counselor ? 'Open conversation' : contact.accepting_requests ? 'Accepting requests' : conversation ? 'Existing chat open' : 'Not accepting requests';
+            return <button
+              key={contact.id}
+              type="button"
+              disabled={disabled}
+              aria-pressed={isActive}
+              aria-label={`${conversation ? 'Open conversation with' : 'Start conversation with'} ${contact.name}. ${status}${unreadCount ? `. ${unreadCount} unread messages` : ''}`}
+              title={`${contact.name} · ${status}`}
+              onClick={() => conversation ? setActive(conversation.id) : start(contact)}
+              className="group flex w-24 flex-none snap-start flex-col items-center gap-2 rounded-xl py-1 text-center focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-teal-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <span className="relative">
+                <span aria-hidden="true" className={`flex h-16 w-16 items-center justify-center rounded-full text-lg font-semibold transition-colors ${isActive ? 'bg-teal-600 text-white ring-2 ring-teal-600 ring-offset-4' : 'bg-teal-50 text-teal-700 ring-1 ring-teal-100 group-hover:bg-teal-100'}`}>{initials(contact.name)}</span>
+                {!counselor && <span aria-hidden="true" className={`absolute bottom-0 right-0 h-4 w-4 rounded-full border-[3px] border-white ${contact.accepting_requests ? 'bg-emerald-500' : 'bg-stone-300'}`} />}
+                {unreadCount > 0 && <span aria-hidden="true" className="absolute -right-1 -top-1 min-w-5 rounded-full bg-rose-500 px-1 text-[10px] font-semibold leading-5 text-white ring-2 ring-white">{unreadCount > 99 ? '99+' : unreadCount}</span>}
+              </span>
+              <span className={`line-clamp-2 w-full break-words text-xs leading-4 ${isActive ? 'font-semibold text-teal-800' : 'text-slate-600'}`}>{contact.name}</span>
+              {!counselor && !conversation && !contact.accepting_requests && <span className="text-[10px] text-slate-400">Requests paused</span>}
+            </button>;
+          })}
+        </div>
+        {!contacts.length && <p className="text-sm text-slate-500">{counselor ? 'Students will appear here when they start a conversation.' : 'No counselors are listed yet.'}</p>}
+        {!counselor && contacts.length > 0 && !contacts.some((contact) => contact.accepting_requests) && <p className="text-xs text-slate-500 mt-2">No counselor is accepting new requests right now. Existing conversations remain open.</p>}
+      </section>
+    )}
+    <div className="grid min-w-0 md:grid-cols-[240px_minmax(0,1fr)] gap-4">
+      <div className="min-w-0 space-y-3">
+        <h3 className="font-semibold text-sm text-slate-800">Message history</h3>
+        {!loading && !error && !conversations.length && <p className="text-sm text-slate-500">No conversations yet.{counselor ? ' Accept requests so students can contact you.' : ' Tap a counselor above to begin.'}</p>}
+        {conversations.map((conversation) => <button key={conversation.id} onClick={() => setActive(conversation.id)} aria-pressed={active === conversation.id} className={`flex w-full items-center gap-3 text-left p-3 rounded-2xl border text-sm transition-colors ${active === conversation.id ? 'bg-teal-50 border-teal-300' : 'bg-white border-stone-200 hover:bg-stone-50'}`}>
+          <span aria-hidden="true" className="flex h-11 w-11 flex-none items-center justify-center rounded-full bg-teal-100 text-sm font-semibold text-teal-800">{initials(contactName(conversation))}</span>
+          <span className="min-w-0 flex-1"><span className="block truncate font-medium text-slate-700">{contactName(conversation)}</span><span className="block text-xs text-slate-500 mt-0.5">{unread[conversation.id] > 0 ? `${unread[conversation.id]} unread messages` : 'View conversation'}</span></span>
+          {unread[conversation.id] > 0 ? <span aria-hidden="true" className="h-2.5 w-2.5 flex-none rounded-full bg-teal-600" /> : <MessageCircle aria-hidden="true" className="h-4 w-4 flex-none text-slate-400" />}
         </button>)}
-        {!counselor && !loading && !error && <div className="space-y-2 pt-3"><h3 className="font-semibold text-sm">Consult a counselor</h3>
-          {contacts.filter((contact) => !conversations.some((item) => item.counselor_id === contact.id)).map((contact) => <div key={contact.id} className="bg-white border rounded-xl p-3 text-sm"><p>{contact.name}</p><p className="text-xs text-slate-500 mb-2">{contact.accepting_requests ? 'Accepting requests' : 'Not accepting new requests'}</p><Button size="sm" disabled={!contact.accepting_requests || busy} onClick={() => start(contact)}>Start conversation</Button></div>)}
-          {!contacts.some((contact) => contact.accepting_requests) && <p className="text-xs text-slate-500">No counselor is accepting new requests right now. You can still reply in existing conversations.</p>}
-        </div>}
       </div>
       {selected ? <MessageThread key={selected.id} conversationId={selected.id} userId={userId} name={contactName(selected)} onRead={() => setRevision((value) => value + 1)} /> : <Card className="p-8 text-sm text-slate-500">Choose a conversation to read or send a message.</Card>}
     </div>

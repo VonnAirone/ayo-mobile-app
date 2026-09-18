@@ -249,7 +249,7 @@ export function CounselorDashboard() {
         </aside>
 
         {/* Main content */}
-        <main className="flex-1 lg:ml-64 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 min-h-screen">
+        <main className="flex-1 min-w-0 lg:ml-64 pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0 min-h-screen">
           <Outlet context={outletContext} />
         </main>
       </div>

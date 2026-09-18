@@ -39,7 +39,7 @@ try {
       };
       window.mockDB = {
         rpc: async (name, args) => {
-          if (name === 'messaging_contacts') return { data: [{ id: role === 'student' ? 'counselor' : 'student', name: role === 'student' ? 'Counselor Test' : 'Student Test', accepting_requests: true }], error: null };
+          if (name === 'messaging_contacts') return { data: role === 'student' ? [{ id: 'counselor', name: 'Counselor Test', accepting_requests: true }, ...['Maria Santos', 'Daniel Cruz', 'Ana Reyes', 'Jasmine Garcia', 'Alex Rivera'].map((name, index) => ({ id: `counselor-${index}`, name, accepting_requests: index !== 1 }))] : [{ id: 'student', name: 'Student Test', accepting_requests: true }], error: null };
           if (name === 'start_conversation') { data.conversations.push({ id: 'conversation', student_id: 'student', counselor_id: 'counselor', created_at: window.now }); return { data: 'conversation', error: null }; }
           return { data: null, error: null };
         },
@@ -86,7 +86,7 @@ try {
   await page.getByLabel('Student', { exact: true }).selectOption('student');
   await page.getByText('No notes in this period.').waitFor();
   await mount('messages', 'student');
-  await page.getByRole('button', { name: 'Start conversation' }).click();
+  await page.getByRole('button', { name: /Start conversation with Counselor Test/ }).click();
   await page.getByLabel('Message', { exact: true }).fill('I would like to talk.');
   await page.evaluate(() => { window.failSend = true; });
   await page.getByRole('button', { name: 'Send message' }).click();

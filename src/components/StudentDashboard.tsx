@@ -220,7 +220,7 @@ export function StudentDashboard() {
         </aside>
 
         {/* Main content */}
-        <main className={`flex-1 lg:ml-64 min-h-screen ${activeTab !== 'checkin' ? 'pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0' : ''}`}>
+        <main className={`flex-1 min-w-0 lg:ml-64 min-h-screen ${activeTab !== 'checkin' ? 'pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0' : ''}`}>
           <Outlet context={outletContext} />
         </main>
       </div>

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
-import { Search, Users, Pencil, Trash2, X, AlertCircle, Heart, CheckCircle2, ArrowLeft, ArrowUpRight } from 'lucide-react';
+import { Search, Users, Pencil, Trash2, X, AlertCircle, Heart, CheckCircle2, ArrowUpRight } from 'lucide-react';
 import { Card } from './ui/card';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
@@ -172,8 +172,7 @@ export function StudentList() {
 
   if (selectedStudent) {
     return <div className="max-w-5xl mx-auto">
-      <button onClick={() => setSelectedStudent(null)} className="hidden lg:flex items-center gap-2 mx-8 mt-6 text-sm text-teal-700 hover:underline"><ArrowLeft className="h-4 w-4" />All students</button>
-      <StudentDetailView student={selectedStudent} onBack={() => setSelectedStudent(null)} />
+      <StudentDetailView key={selectedStudent.id} student={selectedStudent} onBack={() => setSelectedStudent(null)} />
     </div>;
   }
 

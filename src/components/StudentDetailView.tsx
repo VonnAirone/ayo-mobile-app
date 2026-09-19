@@ -1,447 +1,122 @@
+import { useEffect, useRef, useState } from 'react';
+import { ArrowLeft, Calendar, ChevronDown, Plus, ClipboardCheck, StickyNote, Clock, Heart } from 'lucide-react';
 import { PriorityReviewPanel } from './PriorityReviewPanel';
-import { MoodTracking } from './MoodTracking';
-import { useEffect, useState } from 'react';
-import { ArrowLeft, Calendar, ChevronDown, ChevronUp, FileText, AlertTriangle, AlertCircle, Heart, Clock, StickyNote } from 'lucide-react';
+import { StudentMoodTrend } from './StudentMoodTrend';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { supabase } from '../lib/supabase';
 import { toast } from 'sonner';
 import { getAnswerSeverity } from '../lib/severity';
 import { moodFromKey } from '../lib/mood';
+import { checkInPercentage, filterCheckIns, summarizeCheckIns } from '../lib/moodHistory';
 import type { CounselorStudent } from './CounselorDashboard';
 
-interface StudentDetailViewProps {
-  student: CounselorStudent;
-  onBack: () => void;
-}
-
-function getInitials(name: string) {
-  return name.split(' ').map((n) => n[0]).slice(0, 2).join('').toUpperCase();
-}
-
-function formatDate(dateString: string): string {
-  if (!dateString) return '—';
-  return new Date(dateString).toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-  });
-}
-
-function daysSinceDate(dateString: string): number {
-  return Math.floor((Date.now() - new Date(dateString).getTime()) / (1000 * 60 * 60 * 24));
-}
-
-function formatDateTime(dateString: string): string {
-  return new Date(dateString).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-  });
-}
-
-interface FollowUpNote {
-  id: string;
-  note: string;
-  created_at: string;
-}
+interface StudentDetailViewProps { student: CounselorStudent; onBack: () => void }
+interface FollowUpNote { id: string; note: string; created_at: string }
+const dateTime = (date: string) => new Date(date).toLocaleString(undefined, { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
 
 export function StudentDetailView({ student, onBack }: StudentDetailViewProps) {
   const [followUpNote, setFollowUpNote] = useState('');
   const [showFollowUpForm, setShowFollowUpForm] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [expandedIdx, setExpandedIdx] = useState<number | null>(0);
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const [followUps, setFollowUps] = useState<FollowUpNote[]>([]);
   const [loadingNotes, setLoadingNotes] = useState(true);
-
+  const [notesError, setNotesError] = useState(false);
+  const [revision, setRevision] = useState(0);
+  const [days, setDays] = useState(30);
+  const [tab, setTab] = useState('history');
+  const saveLock = useRef(false);
+  const panelsRef = useRef<HTMLDivElement>(null);
+  const checkIns = filterCheckIns(student.checkIns, days);
+  const summary = summarizeCheckIns(checkIns);
+  const allCheckIns = filterCheckIns(student.checkIns, 0);
+  const latest = allCheckIns[0];
+  const latestMood = moodFromKey(latest?.mood);
+  const latestScore = latest ? checkInPercentage(latest) : null;
   const isHigh = student.alertLevel === 'high';
   const isMedium = student.alertLevel === 'medium';
-  const daysSinceLast = student.lastCheckIn ? daysSinceDate(student.lastCheckIn) : null;
-
-  const latestCheckIn = student.checkIns[0];
-  const concernCount = (latestCheckIn?.answers ?? []).filter(
-    (a) => getAnswerSeverity(a) === 'medium'
-  ).length;
-
-  async function loadFollowUps() {
-    const { data, error } = await supabase
-      .from('follow_ups')
-      .select('id, note, created_at')
-      .eq('student_id', student.id)
-      .order('created_at', { ascending: false });
-
-    if (error) {
-      console.error('Failed to load follow-ups:', error.message);
-    } else {
-      setFollowUps(data ?? []);
-    }
-    setLoadingNotes(false);
-  }
 
   useEffect(() => {
-    setLoadingNotes(true);
-    loadFollowUps();
-  }, [student.id]);
+    let cancelled = false;
+    setLoadingNotes(true); setNotesError(false);
+    (async () => {
+      try {
+        const { data, error } = await supabase.from('follow_ups').select('id, note, created_at').eq('student_id', student.id).order('created_at', { ascending: false });
+        if (error) throw error;
+        if (!cancelled) setFollowUps(data ?? []);
+      } catch { if (!cancelled) setNotesError(true); }
+      finally { if (!cancelled) setLoadingNotes(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [student.id, revision]);
 
-  function closeFollowUpForm() {
-    setShowFollowUpForm(false);
-    setFollowUpNote('');
+  function changeTab(value: string) { setTab(value); }
+  function reviewPriority() {
+    setTab('review');
+    requestAnimationFrame(() => panelsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
   }
-
-  useEffect(() => {
-    if (!showFollowUpForm) return;
-
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') closeFollowUpForm();
-    }
-    window.addEventListener('keydown', onKey);
-
-    return () => {
-      document.body.style.overflow = previousOverflow;
-      window.removeEventListener('keydown', onKey);
-    };
-  }, [showFollowUpForm]);
-
-  async function handleSaveFollowUp() {
-    if (!followUpNote.trim()) return;
-    setSaving(true);
-
-    const { error } = await supabase.from('follow_ups').insert({
-      student_id: student.id,
-      note: followUpNote.trim(),
-    });
-
-    if (error) {
-      toast.error('Failed to save follow-up note.');
-    } else {
+  function closeNote() { if (!saveLock.current) { setShowFollowUpForm(false); setFollowUpNote(''); } }
+  async function saveNote(event: React.FormEvent) {
+    event.preventDefault();
+    if (!followUpNote.trim() || saveLock.current) return;
+    saveLock.current = true; setSaving(true);
+    try {
+      const { error } = await supabase.from('follow_ups').insert({ student_id: student.id, note: followUpNote.trim() });
+      if (error) throw error;
+      setFollowUpNote(''); setShowFollowUpForm(false); setTab('notes'); setRevision(value => value + 1);
       toast.success('Follow-up note saved.');
-      setFollowUpNote('');
-      setShowFollowUpForm(false);
-      await loadFollowUps();
-    }
-    setSaving(false);
+    } catch { toast.error('Could not save your note. Your draft is still here.'); }
+    finally { saveLock.current = false; setSaving(false); }
   }
 
-  return (
-    <div className="p-6 lg:p-8 max-w-3xl space-y-6">
-      {/* Header */}
-      <div className="pt-2 flex items-center gap-3">
-        <button
-          onClick={onBack}
-          className="p-2 hover:bg-stone-100 rounded-xl transition-colors text-slate-400 hover:text-slate-600 lg:hidden"
-          aria-label="Go back"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
+  return <div className="p-5 lg:p-8 w-full min-w-0 max-w-6xl mx-auto space-y-6">
+    <button onClick={onBack} className="flex items-center gap-2 text-sm text-slate-500 hover:text-teal-700"><ArrowLeft className="h-4 w-4" />All students</button>
+    <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
+      <div className="flex items-center gap-3 min-w-0"><span aria-hidden="true" className="h-14 w-14 rounded-2xl shrink-0 bg-teal-100 text-teal-700 font-semibold text-lg flex items-center justify-center">{student.name.trim().split(/\s+/).slice(0,2).map(part => part[0]).join('').toUpperCase()}</span><div className="min-w-0"><p className="text-xs text-slate-400 mb-1">Student profile</p><h2 className="font-display text-3xl font-medium text-slate-800 break-words">{student.name}</h2></div></div>
+      <div className="flex gap-2 shrink-0"><Button variant="outline" onClick={reviewPriority} className="rounded-xl border-stone-200 flex-1 sm:flex-none"><ClipboardCheck className="h-4 w-4" />Review priority</Button><Button onClick={() => setShowFollowUpForm(true)} className="rounded-xl bg-teal-700 hover:bg-teal-800 flex-1 sm:flex-none"><Plus className="h-4 w-4" />Add note</Button></div>
+    </header>
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-stone-200/70 bg-white px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-medium ${isHigh ? 'bg-rose-50 text-rose-700' : isMedium ? 'bg-amber-50 text-amber-700' : 'bg-stone-100 text-slate-600'}`}>{isHigh ? 'High priority' : isMedium ? 'Follow-up needed' : 'No priority flag'}</span><p className="text-xs text-slate-500">{student.prioritySource} · For follow-up, not diagnosis</p></div>
 
-        {/* Avatar + name */}
-        <div className="flex items-center gap-3 flex-1">
-          <div
-            className={`w-12 h-12 rounded-2xl flex items-center justify-center text-base font-semibold flex-shrink-0 ${
-              isHigh
-                ? 'bg-rose-100 text-rose-600'
-                : isMedium
-                ? 'bg-pink-100 text-pink-600'
-                : 'bg-teal-100 text-teal-600'
-            }`}
-          >
-            {getInitials(student.name)}
-          </div>
-          <div>
-            <h2 className="font-display text-2xl font-medium text-slate-800 tracking-tight">{student.name}</h2>
-            <div className="flex items-center gap-2 mt-0.5">
-              <span className="text-xs text-slate-400">Student</span>
-              {student.alertLevel !== 'none' && (
-                <>
-                  <span className="text-stone-300">·</span>
-                  <span
-                    className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                      isHigh ? 'bg-rose-100 text-rose-600' : 'bg-pink-100 text-pink-600'
-                    }`}
-                  >
-                    {isHigh ? 'High Priority' : 'Needs Comfort'}
-                  </span>
-                </>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <p className="text-xs text-slate-500">{student.prioritySource}. Priority guides follow-up and is not a diagnosis.</p>
-      <PriorityReviewPanel key={student.id} studentId={student.id} latestCheckIn={student.lastCheckIn} />
-
-      {/* Alert banner */}
-      {student.alertLevel !== 'none' && (
-        <Card
-          className={`p-4 border rounded-2xl ${
-            isHigh ? 'bg-rose-50 border-rose-100' : 'bg-pink-50 border-pink-100'
-          }`}
-        >
-          <div className="flex items-start gap-3">
-            {isHigh ? (
-              <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-rose-400" />
-            ) : (
-              <Heart className="w-5 h-5 flex-shrink-0 mt-0.5 text-pink-400" />
-            )}
-            <div>
-              <p className={`text-sm font-semibold ${isHigh ? 'text-rose-700' : 'text-pink-700'}`}>
-                {isHigh ? 'High-priority follow-up indicator' : 'Follow-up indicator'}
-              </p>
-              <p className={`text-xs mt-0.5 leading-relaxed ${isHigh ? 'text-rose-600' : 'text-pink-600'}`}>
-                {isHigh
-                  ? 'Review the responses and counselor decision above to plan appropriate follow-up.'
-                  : 'This student may benefit from a comforting conversation. Reach out when possible.'}
-              </p>
-            </div>
-          </div>
-        </Card>
-      )}
-
-      {/* Stats row */}
-      <div className="grid grid-cols-3 gap-3">
-        <Card className="p-4 border border-stone-200/70 rounded-2xl text-center flex flex-col justify-end">
-          <div className="text-2xl font-semibold text-teal-600 leading-none">{student.checkIns.length}</div>
-          <div className="text-xs text-slate-400 mt-1">Check-Ins</div>
-        </Card>
-        <Card className="p-4 border border-stone-200/70 rounded-2xl text-center flex flex-col justify-end">
-          <div className="flex items-center justify-center gap-1 leading-none">
-            <Clock className="w-3.5 h-3.5 text-slate-400" />
-            <span className="text-sm font-semibold text-slate-700">
-              {daysSinceLast === null
-                ? '—'
-                : daysSinceLast === 0
-                ? 'Today'
-                : daysSinceLast === 1
-                ? '1d ago'
-                : `${daysSinceLast}d ago`}
-            </span>
-          </div>
-          <div className="text-xs text-slate-400 mt-1">Last Seen</div>
-        </Card>
-        <Card className="p-4 border border-stone-200/70 rounded-2xl text-center flex flex-col justify-end">
-          <div className={`text-2xl font-semibold leading-none ${concernCount > 0 ? 'text-amber-500' : 'text-slate-300'}`}>
-            {concernCount}
-          </div>
-          <div className="text-xs text-slate-400 mt-1">Concerns</div>
-        </Card>
-      </div>
-
-      <MoodTracking checkIns={student.checkIns} audience="counselor" />
-
-      {/* Recent concerns */}
-      {student.recentConcerns.length > 0 && (
-        <Card className="p-5 border border-stone-200/70 rounded-2xl">
-          <h3 className="text-sm font-semibold text-slate-700 mb-3">Recent Concerns</h3>
-          <div className="flex flex-wrap gap-2">
-            {student.recentConcerns.map((concern, idx) => (
-              <span
-                key={idx}
-                className="text-xs bg-stone-50 border border-stone-200/70 text-slate-600 px-3 py-1 rounded-full"
-              >
-                {concern}
-              </span>
-            ))}
-          </div>
-        </Card>
-      )}
-
-      {/* Follow-up notes */}
-      <div>
-        <div className="flex items-center justify-between mb-3 gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <h3 className="text-sm font-semibold text-slate-700">Follow-Up Notes</h3>
-            {followUps.length > 0 && (
-              <span className="text-xs text-slate-400">{followUps.length} note{followUps.length !== 1 ? 's' : ''}</span>
-            )}
-          </div>
-          <Button
-            size="sm"
-            onClick={() => setShowFollowUpForm(true)}
-            className="rounded-xl text-xs h-8 px-3 bg-teal-600 hover:bg-teal-700 text-white flex-shrink-0"
-          >
-            + Add Note
-          </Button>
-        </div>
-
-        {loadingNotes ? (
-          <Card className="p-6 text-center border border-stone-200/70 rounded-2xl">
-            <p className="text-slate-400 text-sm">Loading notes…</p>
-          </Card>
-        ) : followUps.length === 0 ? (
-          <Card className="p-6 text-center border border-stone-200/70 rounded-2xl">
-            <StickyNote className="w-5 h-5 text-slate-300 mx-auto mb-2" />
-            <p className="text-slate-400 text-sm">No follow-up notes yet.</p>
-          </Card>
-        ) : (
-          <div className="space-y-3">
-            {followUps.map((note) => (
-              <Card key={note.id} className="p-4 border border-stone-200/70 rounded-2xl">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 bg-teal-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                    <StickyNote className="w-4 h-4 text-teal-500" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-xs text-slate-400 mb-1.5">{formatDateTime(note.created_at)}</p>
-                    <p className="text-sm text-slate-700 leading-relaxed whitespace-pre-wrap break-words">
-                      {note.note}
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Check-in history */}
-      <div>
-        <h3 className="text-sm font-semibold text-slate-700 mb-3">Check-In History</h3>
-
-        {student.checkIns.length === 0 ? (
-          <Card className="p-10 text-center border border-stone-200/70 rounded-2xl">
-            <div className="text-2xl mb-2">🌱</div>
-            <p className="text-slate-400 text-sm">No check-ins submitted yet.</p>
-          </Card>
-        ) : (
-          <div className="space-y-3">
-            {student.checkIns.map((checkIn, idx) => {
-              const isExpanded = expandedIdx === idx;
-              const mood = moodFromKey(checkIn.mood);
-              const percentage =
-                checkIn.score !== null && checkIn.maxScore && checkIn.maxScore > 0
-                  ? Math.round((checkIn.score / checkIn.maxScore) * 100)
-                  : null;
-              const filledAnswers = checkIn.answers.filter((a) => a.answer.trim().length > 0);
-
-              return (
-                <Card key={idx} className="border border-stone-200/70 rounded-2xl overflow-hidden">
-                  {/* Session header — always visible, click to expand */}
-                  <button
-                    className="w-full flex items-center justify-between px-5 py-4 hover:bg-stone-50 transition-colors"
-                    onClick={() => setExpandedIdx(isExpanded ? null : idx)}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-teal-50 rounded-xl flex items-center justify-center flex-shrink-0">
-                        <Calendar className="w-4 h-4 text-teal-500" />
-                      </div>
-                      <div className="text-left">
-                        <p className="text-sm font-medium text-slate-700">{formatDate(checkIn.date)}</p>
-                        <p className="text-xs text-slate-400">
-                          {filledAnswers.length} response{filledAnswers.length !== 1 ? 's' : ''}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {mood && (
-                        <span className="text-xs text-slate-500 bg-stone-100 px-2.5 py-1 rounded-full hidden sm:block">
-                          {mood.emoji} {mood.label}
-                          {percentage !== null && ` · ${percentage}%`}
-                        </span>
-                      )}
-                      {isExpanded ? (
-                        <ChevronUp className="w-4 h-4 text-slate-400" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4 text-slate-400" />
-                      )}
-                    </div>
-                  </button>
-
-                  {/* Expanded answers */}
-                  {isExpanded && filledAnswers.length > 0 && (
-                    <div className="px-5 pb-5 space-y-3 border-t border-stone-100 pt-4">
-                      {filledAnswers.map((a) => {
-                        const severity = getAnswerSeverity(a);
-                        const borderClass =
-                          severity === 'high'
-                            ? 'border-rose-300'
-                            : severity === 'medium'
-                            ? 'border-amber-300'
-                            : 'border-stone-200/70';
-                        return (
-                          <div key={a.questionId} className={`text-sm border-l-2 ${borderClass} pl-3`}>
-                            <div className="flex items-start gap-2 mb-0.5">
-                              <p className="text-slate-400 text-xs flex-1">{a.question}</p>
-                              {severity === 'high' && (
-                                <span className="text-[10px] font-medium text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-full flex-shrink-0">
-                                  High concern
-                                </span>
-                              )}
-                              {severity === 'medium' && (
-                                <span className="text-[10px] font-medium text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded-full flex-shrink-0">
-                                  Medium
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-slate-700">{a.answer}</p>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </Card>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Follow-up note modal — slides up from bottom */}
-      {showFollowUpForm && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Add follow-up note"
-        >
-          <button
-            type="button"
-            aria-label="Close"
-            onClick={closeFollowUpForm}
-            className="absolute inset-0 bg-black/40 animate-overlay-in"
-          />
-          <div className="relative w-full sm:max-w-lg h-[50vh] sm:h-auto bg-white rounded-t-3xl sm:rounded-3xl sm:mb-6 shadow-xl animate-slide-up flex flex-col pb-[max(1.25rem,env(safe-area-inset-bottom))]">
-            <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
-              <span className="w-10 h-1.5 rounded-full bg-stone-200" aria-hidden="true" />
-            </div>
-            <div className="px-5 pt-2 flex-1 flex flex-col min-h-0">
-              <div className="flex items-center gap-2 mb-3 flex-shrink-0">
-                <FileText className="w-4 h-4 text-teal-600" />
-                <h4 className="text-sm font-semibold text-slate-700">Follow-Up Note</h4>
-              </div>
-              <Textarea
-                placeholder="Enter follow-up notes, action items, or referrals…"
-                value={followUpNote}
-                onChange={(e) => setFollowUpNote(e.target.value)}
-                autoFocus
-                className="mb-3 bg-white border-stone-200/70 focus:border-teal-300 rounded-xl text-sm resize-none flex-1 min-h-0"
-              />
-              <div className="flex gap-2 flex-shrink-0">
-                <Button
-                  onClick={handleSaveFollowUp}
-                  disabled={saving || !followUpNote.trim()}
-                  className="flex-1 bg-teal-600 hover:bg-teal-700 rounded-xl text-sm h-10"
-                >
-                  {saving ? 'Saving…' : 'Save Note'}
-                </Button>
-                <Button
-                  onClick={closeFollowUpForm}
-                  variant="outline"
-                  className="rounded-xl text-sm h-10 border-stone-200/70"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <Card className="p-4 rounded-2xl border-stone-200/80 gap-2"><p className="text-xs text-slate-500 flex items-center gap-1.5"><Heart className="h-3.5 w-3.5 text-teal-600" />Latest mood</p><p className="font-semibold text-slate-800">{latestMood ? `${latestMood.emoji} ${latestMood.key === 'happy' ? 'Happy' : latestMood.key === 'okay' ? 'Okay' : 'Struggling'}` : 'Not recorded'}</p><p className="text-xs text-slate-400">Most recent check-in</p></Card>
+      <Card className="p-4 rounded-2xl border-stone-200/80 gap-2"><p className="text-xs text-slate-500">Latest score</p><p className="text-2xl font-semibold text-teal-700">{latestScore === null ? '—' : `${latestScore}%`}</p><p className="text-xs text-slate-400">Questionnaire points</p></Card>
+      <Card className="p-4 rounded-2xl border-stone-200/80 gap-2"><p className="text-xs text-slate-500">Total check-ins</p><p className="text-2xl font-semibold text-slate-800">{student.checkIns.length}</p><p className="text-xs text-slate-400">All time</p></Card>
+      <Card className="p-4 rounded-2xl border-stone-200/80 gap-2"><p className="text-xs text-slate-500 flex items-center gap-1.5"><Clock className="h-3.5 w-3.5" />Last check-in</p><p className="font-semibold text-slate-800">{latest ? new Date(latest.date).toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' }) : 'No check-ins yet'}</p><p className="text-xs text-slate-400">Recorded activity</p></Card>
     </div>
-  );
+
+    <section className="space-y-4 min-w-0" aria-label="Check-in trends">
+      <div className="flex flex-wrap items-center justify-between gap-3"><h3 className="text-sm font-semibold text-slate-700">Check-in overview</h3><div className="flex flex-wrap gap-1" aria-label="Check-in period">{[{days:7,label:'7 days'},{days:30,label:'30 days'},{days:90,label:'90 days'},{days:0,label:'All time'}].map(item => <button key={item.days} aria-pressed={days === item.days} onClick={() => { setDays(item.days); setExpandedIdx(null); }} className={`rounded-full px-3 py-2 text-xs border ${days === item.days ? 'bg-teal-700 border-teal-700 text-white' : 'bg-white border-stone-200 text-slate-500'}`}>{item.label}</button>)}</div></div>
+      <StudentMoodTrend checkIns={checkIns} />
+      <p className="text-xs text-slate-500">Period average: <strong className="text-slate-700">{summary.average === null ? '—' : `${summary.average}%`}</strong> across {summary.scoredCount} scored check-ins. The date filter applies to the graph and check-in history.</p>
+    </section>
+
+    <div ref={panelsRef} className="scroll-mt-20">
+      <Tabs value={tab} onValueChange={changeTab} className="gap-5">
+        <TabsList aria-label="Student records" className="w-full sm:w-fit h-11 bg-stone-100"><TabsTrigger value="history">Check-ins</TabsTrigger><TabsTrigger value="notes">Follow-up notes</TabsTrigger><TabsTrigger value="review">Priority review</TabsTrigger></TabsList>
+        <TabsContent value="history" className="space-y-4">
+          <div className="flex justify-between items-center"><h3 className="font-semibold text-slate-700">Check-in history</h3><span className="text-xs text-slate-400">{checkIns.length} in this period</span></div>
+          {!!student.recentConcerns.length && <details className="rounded-xl border border-amber-100 bg-amber-50/50 p-4"><summary className="text-sm font-medium text-amber-800 cursor-pointer">Items to discuss from the latest check-in</summary><ul className="list-disc pl-5 mt-3 text-sm text-slate-600 space-y-2">{student.recentConcerns.map((item,index)=><li key={index}>{item}</li>)}</ul><p className="text-xs text-slate-500 mt-3">Based on the latest check-in, regardless of the selected period.</p></details>}
+          {!checkIns.length ? <Card className="p-8 text-center rounded-2xl border-stone-200/80"><p className="text-sm text-slate-500">No check-ins in this period. Try a wider date range.</p></Card> : checkIns.map((checkIn,index) => {
+            const mood = moodFromKey(checkIn.mood); const percentage = checkInPercentage(checkIn); const expanded = expandedIdx === index;
+            const answers = checkIn.answers.filter(answer => answer.answer.trim());
+            return <Card key={`${checkIn.date}-${index}`} className="rounded-2xl border-stone-200/80 overflow-hidden gap-0">
+              <button onClick={()=>setExpandedIdx(expanded ? null : index)} aria-expanded={expanded} className="flex w-full items-center gap-3 p-4 sm:p-5 text-left hover:bg-stone-50"><span className="rounded-xl bg-teal-50 p-2.5 text-teal-600"><Calendar className="h-4 w-4" /></span><div className="min-w-0 flex-1"><p className="text-sm font-medium text-slate-700">{dateTime(checkIn.date)}</p><p className="text-xs text-slate-500 mt-1">{mood ? `${mood.emoji} ${mood.label}` : 'No mood recorded'}</p></div><div className="flex items-center gap-2 shrink-0"><span className="text-sm font-semibold text-teal-700">{percentage === null ? '—' : `${percentage}%`}</span><ChevronDown className={`h-4 w-4 text-slate-400 transition-transform ${expanded ? 'rotate-180' : ''}`} /></div></button>
+              {expanded && <div className="border-t border-stone-100 p-5 space-y-4">{!answers.length ? <p className="text-sm text-slate-500">No responses recorded.</p> : answers.map((answer,index)=><div key={`${answer.questionId}-${index}`} className={`border-l-2 pl-3 ${getAnswerSeverity(answer) === 'none' ? 'border-stone-200' : 'border-amber-300'}`}><p className="text-xs text-slate-500">{answer.question}</p><p className="text-sm text-slate-700 mt-1 whitespace-pre-wrap break-words">{answer.answer}</p></div>)}</div>}
+            </Card>;
+          })}
+        </TabsContent>
+        <TabsContent value="notes" className="space-y-4"><div className="flex items-center justify-between"><h3 className="font-semibold text-slate-700">Follow-up notes</h3><span className="text-xs text-slate-400">All time · {followUps.length} notes</span></div>
+          {loadingNotes ? <p role="status" className="text-sm text-slate-500">Loading notes…</p> : notesError ? <p role="alert" className="text-sm text-rose-700">Could not load notes. <button onClick={()=>setRevision(value=>value+1)} className="underline">Retry</button></p> : !followUps.length ? <Card className="p-8 items-center text-center rounded-2xl border-stone-200/80 gap-3"><StickyNote className="h-7 w-7 text-teal-300" /><p className="text-sm text-slate-500">No follow-up notes yet.</p><Button variant="outline" onClick={()=>setShowFollowUpForm(true)}>Add first note</Button></Card> : followUps.map(note=><Card key={note.id} className="p-5 rounded-2xl border-stone-200/80 gap-2"><time className="text-xs text-slate-400">{dateTime(note.created_at)}</time><p className="text-sm text-slate-700 whitespace-pre-wrap break-words leading-relaxed">{note.note}</p></Card>)}
+        </TabsContent>
+        <TabsContent value="review" forceMount className={tab !== 'review' ? 'hidden' : ''}><PriorityReviewPanel key={student.id} studentId={student.id} latestCheckIn={student.lastCheckIn} /></TabsContent>
+      </Tabs>
+    </div>
+    <Dialog open={showFollowUpForm} onOpenChange={open => { if (open) setShowFollowUpForm(true); else closeNote(); }}>
+      <DialogContent className="rounded-2xl"><DialogHeader><DialogTitle>New follow-up note</DialogTitle><DialogDescription>Record the conversation, next steps, or referrals. This note is visible to the student.</DialogDescription></DialogHeader><form onSubmit={saveNote} className="space-y-4"><label className="block text-sm text-slate-600">Note<Textarea aria-label="Follow-up note" required rows={5} value={followUpNote} disabled={saving} onChange={event=>setFollowUpNote(event.target.value)} placeholder="What was discussed, and what happens next?" className="mt-2 rounded-xl resize-y max-h-64" /></label><div className="flex justify-end gap-2"><Button type="button" variant="outline" disabled={saving} onClick={closeNote}>Cancel</Button><Button type="submit" disabled={saving || !followUpNote.trim()} className="bg-teal-700 hover:bg-teal-800">{saving ? 'Saving…' : 'Save note'}</Button></div></form></DialogContent>
+    </Dialog>
+  </div>;
 }

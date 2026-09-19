@@ -33,7 +33,7 @@ try {
       window.testView = view; window.testRole = role; window.now = new Date().toISOString();
       window.sent = []; window.failSend = false;
       window.fixtureStudents = [
-        { id:'student', name:'Maria Santos', lastCheckIn:window.now, alertLevel:'high', recentConcerns:[], concernCount:0, checkIns:[], prioritySource:'Provisional · needs counselor review' },
+        { id:'student', name:'Maria Santos', lastCheckIn:window.now, alertLevel:'high', recentConcerns:[], concernCount:0, checkIns:[0,2,5,12,18].map((days,index)=>({date:new Date(Date.now()-days*86400000).toISOString(),mood:['happy','okay','struggling','okay',null][index],score:[40,30,15,25,null][index],maxScore:index===4?null:50,answers:[{questionId:'q',question:'I feel supported',answer:'Often'}]})), prioritySource:'Provisional · needs counselor review' },
         { id:'second', name:'Daniel Cruz', lastCheckIn:'', alertLevel:'none', recentConcerns:[], concernCount:0, checkIns:[], prioritySource:'Counselor reviewed' },
       ];
       const data = window.records = {
@@ -107,6 +107,21 @@ try {
   await page.screenshot({path:'/tmp/ayo-students-desktop.png',fullPage:true});
   await page.getByRole('button', {name:'View Maria Santos',exact:true}).click();
   await page.getByRole('heading', {name:'Maria Santos',exact:true}).waitFor();
+  await page.getByRole('img', {name:/Recorded mood over time/}).waitFor();
+  await page.screenshot({path:'/tmp/ayo-student-detail-desktop.png',fullPage:true});
+  await page.getByRole('button', {name:'Score',exact:true}).click();
+  await page.getByRole('img', {name:/Well-being score over time/}).waitFor();
+  await page.getByRole('button', {name:'7 days',exact:true}).click();
+  await page.getByText('3 check-ins in this period', {exact:true}).waitFor();
+  await page.setViewportSize({width:390,height:844});
+  await page.screenshot({path:'/tmp/ayo-student-detail-mobile.png',fullPage:true});
+  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+  await page.getByRole('button', {name:'Review priority',exact:true}).click();
+  await page.getByRole('heading', {name:'Counselor priority review',exact:true}).waitFor();
+  await page.getByRole('button', {name:'Add note',exact:true}).click();
+  await page.getByLabel('Follow-up note', {exact:true}).fill('Follow up next week.');
+  await page.getByRole('button', {name:'Save note',exact:true}).click();
+  await page.getByText('Follow up next week.', {exact:true}).waitFor();
   await page.getByRole('button', {name:'All students',exact:true}).click();
   await page.getByRole('button', {name:'View Daniel Cruz',exact:true}).waitFor();
   await page.setViewportSize({width:390,height:844});

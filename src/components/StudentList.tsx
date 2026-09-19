@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useOutletContext, useSearchParams } from 'react-router-dom';
-import { Search, Users, Pencil, Trash2, X, AlertCircle, Heart, CheckCircle2, SlidersHorizontal, Check, ChevronDown } from 'lucide-react';
+import { Search, Users, Pencil, Trash2, X, AlertCircle, Heart, CheckCircle2, ArrowLeft, ArrowUpRight } from 'lucide-react';
 import { Card } from './ui/card';
 import { Input } from './ui/input';
 import { Button } from './ui/button';
@@ -41,7 +41,7 @@ const FILTER_META: Record<FilterKey, {
     iconClass: 'text-rose-500',
   },
   medium: {
-    label: 'Needs comfort',
+    label: 'Follow-up',
     icon: Heart,
     iconClass: 'text-pink-500',
   },
@@ -51,7 +51,7 @@ const FILTER_ORDER: FilterKey[] = ['active-today', 'high', 'medium'];
 
 function isToday(dateString: string): boolean {
   if (!dateString) return false;
-  return Math.floor((Date.now() - new Date(dateString).getTime()) / (1000 * 60 * 60 * 24)) === 0;
+  return new Date(dateString).toDateString() === new Date().toDateString();
 }
 
 export function StudentList() {
@@ -83,33 +83,13 @@ export function StudentList() {
       ? rawFilter
       : null;
 
-  const [filterOpen, setFilterOpen] = useState(false);
-
-  useEffect(() => {
-    if (!filterOpen) return;
-    function handlePointer(e: MouseEvent) {
-      const target = e.target as HTMLElement | null;
-      if (target && !target.closest('[data-filter-root]')) {
-        setFilterOpen(false);
-      }
-    }
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setFilterOpen(false);
-    }
-    document.addEventListener('mousedown', handlePointer);
-    document.addEventListener('keydown', handleKey);
-    return () => {
-      document.removeEventListener('mousedown', handlePointer);
-      document.removeEventListener('keydown', handleKey);
-    };
-  }, [filterOpen]);
+  const [sort, setSort] = useState('priority');
 
   function setFilter(key: FilterKey | null) {
     const next = new URLSearchParams(searchParams);
     if (key) next.set('filter', key);
     else next.delete('filter');
     setSearchParams(next, { replace: true });
-    setFilterOpen(false);
   }
 
   // Edit state
@@ -129,7 +109,11 @@ export function StudentList() {
       return true;
     })
     .filter((s) => s.name.toLowerCase().includes(searchQuery.toLowerCase()))
-    .sort((a, b) => ALERT_ORDER[a.alertLevel] - ALERT_ORDER[b.alertLevel]);
+    .sort((a, b) => {
+      if (sort === 'name') return a.name.localeCompare(b.name);
+      if (sort === 'recent') return (Date.parse(b.lastCheckIn) || 0) - (Date.parse(a.lastCheckIn) || 0);
+      return ALERT_ORDER[a.alertLevel] - ALERT_ORDER[b.alertLevel] || a.name.localeCompare(b.name);
+    });
 
   function openEdit(student: CounselorStudent, e: React.MouseEvent) {
     e.stopPropagation();
@@ -186,245 +170,55 @@ export function StudentList() {
     setDeleting(false);
   }
 
-  const listPanel = (
-    <div className="flex flex-col h-full">
-      {/* List header */}
-      <div className="px-6 lg:px-4 pt-5 pb-3 border-b border-stone-100 flex-shrink-0">
-        <h2 className="text-sm font-semibold text-slate-700 hidden lg:block mb-3">Students</h2>
-        <div className="flex items-center gap-2">
-          <div className="relative flex-1 min-w-0">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-            <Input
-              type="text"
-              placeholder="Search by name…"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-9 text-sm bg-stone-50 border-stone-200 focus:border-teal-300 rounded-xl h-9"
-            />
-          </div>
-
-          <div className="relative flex-shrink-0" data-filter-root>
-            <button
-              type="button"
-              onClick={() => setFilterOpen((v) => !v)}
-              aria-haspopup="listbox"
-              aria-expanded={filterOpen}
-              aria-label="Filter students"
-              className={`flex items-center gap-1.5 h-9 px-3 rounded-xl border text-sm font-medium transition-colors ${
-                activeFilter
-                  ? 'bg-teal-50 border-teal-200 text-teal-700 hover:bg-teal-100/70'
-                  : 'bg-stone-50 border-stone-200 text-slate-600 hover:bg-stone-100'
-              }`}
-            >
-              {activeFilter ? (() => {
-                const { icon: FIcon, iconClass, label } = FILTER_META[activeFilter];
-                return (
-                  <>
-                    <FIcon className={`w-3.5 h-3.5 ${iconClass}`} />
-                    <span className="hidden sm:inline truncate max-w-[110px]">{label}</span>
-                  </>
-                );
-              })() : (
-                <>
-                  <SlidersHorizontal className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Filter</span>
-                </>
-              )}
-              <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${filterOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {filterOpen && (
-              <div
-                role="listbox"
-                aria-label="Filter students"
-                className="absolute right-0 top-full mt-2 w-56 bg-white border border-stone-200 rounded-xl shadow-lg z-20 overflow-hidden"
-              >
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={activeFilter === null}
-                  onClick={() => setFilter(null)}
-                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left hover:bg-stone-50 transition-colors ${
-                    activeFilter === null ? 'text-teal-700' : 'text-slate-600'
-                  }`}
-                >
-                  <Users className="w-4 h-4 text-slate-400" />
-                  <span className="flex-1">All students</span>
-                  {activeFilter === null && <Check className="w-4 h-4 text-teal-600" />}
-                </button>
-                <div className="h-px bg-stone-100" />
-                {FILTER_ORDER.map((key) => {
-                  const { label, icon: OptIcon, iconClass } = FILTER_META[key];
-                  const isActive = activeFilter === key;
-                  return (
-                    <button
-                      key={key}
-                      type="button"
-                      role="option"
-                      aria-selected={isActive}
-                      onClick={() => setFilter(key)}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-left hover:bg-stone-50 transition-colors ${
-                        isActive ? 'text-teal-700' : 'text-slate-600'
-                      }`}
-                    >
-                      <OptIcon className={`w-4 h-4 ${iconClass}`} />
-                      <span className="flex-1">{label}</span>
-                      {isActive && <Check className="w-4 h-4 text-teal-600" />}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-        {filteredStudents.length > 0 && (
-          <p className="text-xs text-slate-400 mt-2">
-            {filteredStudents.length} student{filteredStudents.length !== 1 ? 's' : ''}
-            {activeFilter && (
-              <span className="text-slate-300"> · </span>
-            )}
-            {activeFilter && (
-              <span className="text-slate-500">{FILTER_META[activeFilter].label.toLowerCase()}</span>
-            )}
-          </p>
-        )}
-      </div>
-
-      {/* Student list */}
-      <div className="flex-1 overflow-y-auto px-6 lg:px-3 py-3 space-y-1.5">
-        {filteredStudents.length === 0 ? (
-          <div className="text-center py-10">
-            <p className="text-slate-400 text-sm">No students found</p>
-          </div>
-        ) : (
-          filteredStudents.map((student) => {
-            const isSelected = selectedStudent?.id === student.id;
-            const isHigh = student.alertLevel === 'high';
-            const isMedium = student.alertLevel === 'medium';
-
-            return (
-              <div
-                key={student.id}
-                className={`group relative w-full text-left p-3.5 rounded-xl border transition-all duration-150 cursor-pointer ${
-                  isSelected
-                    ? 'border-teal-300/70 bg-teal-50'
-                    : 'border-transparent hover:bg-stone-50 hover:border-stone-200'
-                }`}
-                onClick={() => setSelectedStudent(student)}
-              >
-                <div className="flex items-center gap-3">
-                  {/* Avatar with alert indicator */}
-                  <div className="relative flex-shrink-0">
-                    <div
-                      className={`w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold ${
-                        isSelected
-                          ? 'bg-teal-100 text-teal-700'
-                          : isHigh
-                          ? 'bg-rose-100 text-rose-600'
-                          : isMedium
-                          ? 'bg-pink-100 text-pink-600'
-                          : 'bg-stone-100 text-slate-500'
-                      }`}
-                    >
-                      {getInitials(student.name)}
-                    </div>
-                    <span className="text-xs text-slate-500">{student.prioritySource}</span>
-                    {student.alertLevel !== 'none' && (
-                      <span
-                        className={`absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full border-2 border-white ${
-                          isHigh ? 'bg-rose-400' : 'bg-pink-400'
-                        }`}
-                      />
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-medium truncate ${isSelected ? 'text-teal-800' : 'text-slate-700'}`}>
-                      {student.name}
-                    </p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="text-xs text-slate-400">
-                        {formatLastSeen(student.lastCheckIn)}
-                      </span>
-                      <span className="text-stone-300 text-xs">·</span>
-                      <span className="text-xs text-slate-400">
-                        {student.checkIns.length} check-in{student.checkIns.length !== 1 ? 's' : ''}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Action buttons — visible on hover */}
-                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-                    <button
-                      onClick={(e) => openEdit(student, e)}
-                      className="p-1.5 rounded-lg hover:bg-white text-slate-400 hover:text-slate-600 transition-colors"
-                      aria-label={`Edit ${student.name}`}
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      onClick={(e) => openDelete(student, e)}
-                      className="p-1.5 rounded-lg hover:bg-rose-50 text-slate-400 hover:text-rose-500 transition-colors"
-                      aria-label={`Remove ${student.name}`}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-    </div>
-  );
-
-  // Mobile: drill-in navigation
   if (selectedStudent) {
-    return (
-      <div className="lg:hidden">
-        <StudentDetailView student={selectedStudent} onBack={() => setSelectedStudent(null)} />
-      </div>
-    );
+    return <div className="max-w-5xl mx-auto">
+      <button onClick={() => setSelectedStudent(null)} className="hidden lg:flex items-center gap-2 mx-8 mt-6 text-sm text-teal-700 hover:underline"><ArrowLeft className="h-4 w-4" />All students</button>
+      <StudentDetailView student={selectedStudent} onBack={() => setSelectedStudent(null)} />
+    </div>;
   }
 
   return (
     <>
-      {/* Mobile layout */}
-      <div className="lg:hidden">
-        <div className="px-6 pt-6 pb-3">
-          <h2 className="font-display text-3xl font-medium text-slate-800 tracking-tight">Students</h2>
-          <p className="text-slate-400 text-sm mt-0.5">View and manage student check-ins</p>
-        </div>
-        {listPanel}
-      </div>
+      <div className="p-5 lg:p-8 max-w-6xl mx-auto space-y-6">
+        <header className="flex items-start justify-between gap-3">
+          <div><p className="text-xs font-semibold uppercase tracking-widest text-teal-700 mb-2">Counselor portal</p><h2 className="font-display text-3xl font-medium text-slate-800">Students</h2><p className="text-sm text-slate-500 mt-2">Keep track of check-ins and plan the next conversation.</p></div>
+          <span className="flex items-center gap-2 rounded-full bg-white border border-stone-200 px-3 py-2 text-sm text-slate-600 shrink-0"><Users className="w-4 h-4" />{students.length}</span>
+        </header>
 
-      {/* Desktop layout: master-detail */}
-      <div className="hidden lg:flex h-full min-h-screen p-6 lg:p-8 max-w-6xl mx-auto">
-        {/* Left panel: student list */}
-        <div className="w-72 border-r border-stone-100 bg-white flex-shrink-0 flex flex-col">
-          {listPanel}
-        </div>
+        <section aria-label="Student filters" className="space-y-4">
+          <div className="flex flex-wrap gap-2">
+            {[{key: null, label: 'All students', count: students.length}, ...FILTER_ORDER.map(key => ({key, label: FILTER_META[key].label, count: students.filter(student => key === 'active-today' ? isToday(student.lastCheckIn) : student.alertLevel === (key === 'high' ? 'high' : 'medium')).length}))].map(item => (
+              <button key={item.key ?? 'all'} type="button" aria-pressed={activeFilter === item.key} onClick={() => setFilter(item.key)} className={`flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm transition-colors ${activeFilter === item.key ? 'bg-teal-700 border-teal-700 text-white' : 'bg-white border-stone-200 text-slate-600 hover:border-teal-300'}`}>
+                {item.label}<span className={`rounded-full px-1.5 text-xs ${activeFilter === item.key ? 'bg-white/20 text-white' : 'bg-stone-100 text-slate-500'}`}>{item.count}</span>
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="relative flex-1"><Search aria-hidden="true" className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" /><Input aria-label="Search students" placeholder="Search students by name" value={searchQuery} onChange={event => setSearchQuery(event.target.value)} className="h-11 pl-10 rounded-xl bg-white border-stone-200" /></div>
+            <label className="flex items-center gap-2 text-xs text-slate-500">Sort by<select aria-label="Sort students" value={sort} onChange={event => setSort(event.target.value)} className="h-11 rounded-xl border border-stone-200 bg-white px-3 text-sm text-slate-700"><option value="priority">Priority first</option><option value="name">Name A–Z</option><option value="recent">Latest check-in</option></select></label>
+          </div>
+        </section>
 
-        {/* Right panel: detail view */}
-        <div className="flex-1 overflow-y-auto bg-stone-50">
-          {selectedStudent ? (
-            <StudentDetailView
-              student={selectedStudent}
-              onBack={() => setSelectedStudent(null)}
-            />
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full text-center px-8">
-              <div className="w-16 h-16 bg-stone-100 rounded-2xl flex items-center justify-center mb-4">
-                <Users className="w-8 h-8 text-slate-300" />
-              </div>
-              <p className="text-slate-600 text-sm font-medium">Select a student</p>
-              <p className="text-slate-400 text-xs mt-1">
-                Choose a student from the list to view their check-in history
-              </p>
-            </div>
-          )}
-        </div>
+        <div className="flex items-center justify-between gap-3"><p className="text-xs text-slate-500" role="status">Showing {filteredStudents.length} of {students.length} students</p>{(searchQuery || activeFilter) && <button className="text-xs font-medium text-teal-700 hover:underline" onClick={() => { setSearchQuery(''); setFilter(null); }}>Clear filters</button>}</div>
+        {filteredStudents.length === 0 ? <Card className="p-10 items-center text-center rounded-2xl border-stone-200 gap-3"><Users className="w-8 h-8 text-teal-300" /><h3 className="font-semibold text-slate-700">{students.length ? 'No matching students' : 'No students yet'}</h3><p className="text-sm text-slate-500">{students.length ? 'Try another name or clear the filters.' : 'Students will appear here after they register.'}</p>{!!students.length && <Button variant="outline" onClick={() => { setSearchQuery(''); setFilter(null); }}>Clear filters</Button>}</Card> : (
+          <div className="grid xl:grid-cols-2 gap-4">
+            {filteredStudents.map(student => {
+              const high = student.alertLevel === 'high';
+              const medium = student.alertLevel === 'medium';
+              return <article key={student.id} className="rounded-2xl border border-stone-200/80 bg-white overflow-hidden transition-shadow hover:shadow-sm">
+                <button aria-label={`View ${student.name}`} onClick={() => setSelectedStudent(student)} className="w-full p-5 text-left focus-visible:outline-2 focus-visible:outline-teal-600 focus-visible:outline-offset-[-2px]">
+                  <div className="flex items-start gap-3">
+                    <span aria-hidden="true" className="h-11 w-11 shrink-0 rounded-full bg-teal-50 text-teal-700 flex items-center justify-center font-semibold">{getInitials(student.name)}</span>
+                    <div className="min-w-0 flex-1"><h3 className="font-semibold text-slate-800 break-words">{student.name}</h3><span className={`inline-block mt-1.5 rounded-full px-2 py-0.5 text-xs font-medium ${high ? 'bg-rose-50 text-rose-700' : medium ? 'bg-amber-50 text-amber-700' : 'bg-stone-100 text-slate-600'}`}>{high ? 'High priority' : medium ? 'Follow-up' : 'No priority flag'}</span></div>
+                    <ArrowUpRight aria-hidden="true" className="h-4 w-4 text-slate-400 shrink-0" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3 mt-5"><div><p className="text-xs text-slate-400">Last check-in</p><p className="text-sm font-medium text-slate-700 mt-1">{formatLastSeen(student.lastCheckIn)}</p></div><div><p className="text-xs text-slate-400">Total check-ins</p><p className="text-sm font-medium text-slate-700 mt-1">{student.checkIns.length}</p></div></div>
+                </button>
+                <div className="flex items-center justify-between gap-3 border-t border-stone-100 px-5 py-2"><p className="text-xs text-slate-500 leading-relaxed">{student.prioritySource}</p><div className="flex shrink-0"><button onClick={event => openEdit(student, event)} className="p-2.5 rounded-lg text-slate-400 hover:bg-stone-100 hover:text-slate-700" aria-label={`Edit ${student.name}`}><Pencil className="w-4 h-4" /></button><button onClick={event => openDelete(student, event)} className="p-2.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-600" aria-label={`Remove ${student.name}`}><Trash2 className="w-4 h-4" /></button></div></div>
+              </article>;
+            })}
+          </div>
+        )}
       </div>
 
       {/* Edit name modal */}

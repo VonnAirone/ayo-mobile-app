@@ -10,9 +10,10 @@ const bundle = await build({
     import {MemoryRouter, Routes, Route, Outlet} from 'react-router-dom';
     import {CounselorReports} from './src/components/CounselorReports';
     import {Messages} from './src/components/Messages';
+    import {StudentList} from './src/components/StudentList';
     import {PriorityReviewPanel} from './src/components/PriorityReviewPanel';
     const view = window.testView;
-    createRoot(document.getElementById('root')).render(<MemoryRouter><Routes><Route element={<Outlet context={{refreshStudents:()=>{}}} />}><Route path="*" element={view==='reports'?<CounselorReports/>:view==='review'?<PriorityReviewPanel studentId="student" latestCheckIn={window.now}/>:<Messages/>}/></Route></Routes></MemoryRouter>);
+    createRoot(document.getElementById('root')).render(<MemoryRouter><Routes><Route element={<Outlet context={{refreshStudents:()=>{}, students:window.fixtureStudents}} />}><Route path="*" element={view==='students'?<StudentList/>:view==='reports'?<CounselorReports/>:view==='review'?<PriorityReviewPanel studentId="student" latestCheckIn={window.now}/>:<Messages/>}/></Route></Routes></MemoryRouter>);
   ` },
   bundle: true, write: false, jsx: 'automatic', alias: aliases,
   define: { 'process.env.NODE_ENV': '"production"' },
@@ -31,6 +32,10 @@ try {
     await page.evaluate(({ view, role }) => {
       window.testView = view; window.testRole = role; window.now = new Date().toISOString();
       window.sent = []; window.failSend = false;
+      window.fixtureStudents = [
+        { id:'student', name:'Maria Santos', lastCheckIn:window.now, alertLevel:'high', recentConcerns:[], concernCount:0, checkIns:[], prioritySource:'Provisional · needs counselor review' },
+        { id:'second', name:'Daniel Cruz', lastCheckIn:'', alertLevel:'none', recentConcerns:[], concernCount:0, checkIns:[], prioritySource:'Counselor reviewed' },
+      ];
       const data = window.records = {
         profiles: [{ id: 'student', name: '<img src=x> Student', role: 'student' }],
         check_ins: [{ id: 'checkin', student_id: 'student', created_at: window.now, score: 40, max_score: 50, mood: 'happy' }],
@@ -70,6 +75,7 @@ try {
     await page.addStyleTag({ content: readFileSync('dist/assets/' + readdirSync('dist/assets').find(file => file.endsWith('.css')), 'utf8') });
     await page.addScriptTag({ content: bundle.outputFiles[0].text });
   }
+  await page.setViewportSize({width:1280,height:900});
   await mount('reports', 'counselor');
   await page.getByRole('button', { name: 'Generate report' }).click();
   await page.getByRole('cell', { name: '80%' }).waitFor();
@@ -82,9 +88,28 @@ try {
   const popup = await popupEvent;
   await popup.getByRole('heading', { name: 'Ayo Counselor Report' }).waitFor();
   assert.equal(await popup.locator('img').count(), 0); await popup.close();
+  await page.screenshot({ path: '/tmp/ayo-reports-desktop.png', fullPage: true });
+  await page.setViewportSize({width:390,height:844});
   await page.screenshot({ path: '/tmp/ayo-reports-mobile.png', fullPage: true });
+  assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
   await page.getByLabel('Student', { exact: true }).selectOption('student');
   await page.getByText('No notes in this period.').waitFor();
+  await mount('students', 'counselor');
+  await page.getByRole('button', {name:'View Maria Santos',exact:true}).waitFor();
+  await page.screenshot({path:'/tmp/ayo-students-mobile.png',fullPage:true});
+  await page.getByRole('button', {name:/High priority/}).click();
+  await page.getByRole('button', {name:'View Daniel Cruz',exact:true}).waitFor({state:'detached'});
+  await page.getByRole('button', {name:'Clear filters',exact:true}).click();
+  await page.getByLabel('Search students').fill('Daniel');
+  await page.getByRole('button', {name:'View Maria Santos',exact:true}).waitFor({state:'detached'});
+  await page.getByLabel('Search students').fill('');
+  await page.setViewportSize({width:1280,height:900});
+  await page.screenshot({path:'/tmp/ayo-students-desktop.png',fullPage:true});
+  await page.getByRole('button', {name:'View Maria Santos',exact:true}).click();
+  await page.getByRole('heading', {name:'Maria Santos',exact:true}).waitFor();
+  await page.getByRole('button', {name:'All students',exact:true}).click();
+  await page.getByRole('button', {name:'View Daniel Cruz',exact:true}).waitFor();
+  await page.setViewportSize({width:390,height:844});
   await mount('messages', 'student');
   await page.getByRole('button', { name: /Start conversation with Counselor Test/ }).click();
   await page.getByLabel('Message', { exact: true }).fill('I would like to talk.');

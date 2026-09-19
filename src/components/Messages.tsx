@@ -6,6 +6,7 @@ import { supabase } from '../lib/supabase';
 import { allPages } from '../lib/records';
 import { Button } from './ui/button';
 import { Card } from './ui/card';
+import { Switch } from './ui/switch';
 import { toast } from 'sonner';
 
 function initials(name: string) {
@@ -90,8 +91,21 @@ function MessagingInbox({ userId, counselor }: { userId: string; counselor: bool
   const contactName = (conversation: Conversation) => contacts.find((item) => item.id === (counselor ? conversation.student_id : conversation.counselor_id))?.name ?? (counselor ? 'Student' : 'Counselor');
 
   return <div className="p-5 lg:p-8 w-full min-w-0 max-w-5xl space-y-5">
-    <h2 className="text-3xl font-medium text-slate-800">Messages</h2>
-    {counselor && <Card className="p-4 flex flex-wrap items-center justify-between gap-3"><div><p className="font-medium text-sm">{accepting ? 'Accepting new requests' : 'Not accepting new requests'}</p></div><Button disabled={busy || loading || error} onClick={toggleAvailability}>{accepting ? 'Pause new requests' : 'Accept new requests'}</Button></Card>}
+    <div className="flex items-center justify-between gap-3">
+      <h2 className="text-3xl font-medium text-slate-800">Messages</h2>
+      {counselor && (
+        <label className="flex min-h-11 min-w-11 items-center justify-center cursor-pointer" title={accepting ? 'Accepting new requests' : 'New requests paused'}>
+          <span className="sr-only">Accept new requests</span>
+          <Switch
+            checked={accepting}
+            onCheckedChange={toggleAvailability}
+            disabled={busy || loading || error}
+            aria-label="Accept new requests"
+            className="data-[state=checked]:bg-teal-600 data-[state=unchecked]:bg-stone-300"
+          />
+        </label>
+      )}
+    </div>
     {loading ? <p role="status">Loading inbox…</p> : error ? <p role="alert">Could not refresh your inbox. <button className="underline" onClick={() => setRevision((value) => value + 1)}>Retry</button></p> : null}
     {!loading && !error && (
       <section aria-label={counselor ? 'Student contacts' : 'Counselor contacts'} className="min-w-0">
